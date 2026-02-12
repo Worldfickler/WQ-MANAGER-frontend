@@ -6,6 +6,8 @@ import Dashboard from '@/views/Dashboard.vue'
 import Trends from '@/views/Trends.vue'
 import Genius from '@/views/Genius.vue'
 import Notice from '@/views/Notice.vue'
+import ValueFactor from '@/views/ValueFactor.vue'
+import Combined from '@/views/Combined.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -50,6 +52,18 @@ const router = createRouter({
       path: '/notice',
       name: 'Notice',
       component: Notice,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/value-factor',
+      name: 'ValueFactor',
+      component: ValueFactor,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/combined',
+      name: 'Combined',
+      component: Combined,
       meta: { requiresAuth: true }
     }
   ]

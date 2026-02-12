@@ -4,6 +4,9 @@ export interface UserHistoryRecord {
   record_date: string
   weight_factor: number | null
   value_factor: number | null
+  combined_alpha_performance: number | null
+  combined_power_pool_alpha_performance: number | null
+  combined_selected_alpha_performance: number | null
   submissions_count: number | null
   mean_prod_correlation: number | null
   mean_self_correlation: number | null
@@ -14,10 +17,26 @@ export interface UserHistoryRecord {
   country: string | null
 }
 
+export interface ValueFactorTrendRecord {
+  update_date: string
+  date_range: string
+  value_factor: number | null
+}
+
+export interface CombinedTrendRecord {
+  update_date: string
+  date_range: string
+  combined_alpha_performance: number | null
+  combined_power_pool_alpha_performance: number | null
+  combined_selected_alpha_performance: number | null
+}
+
 export interface UserHistoryResponse {
   wq_id: string
   username: string | null
   data: UserHistoryRecord[]
+  value_factor_trend: ValueFactorTrendRecord[]
+  combined_trend: CombinedTrendRecord[]
 }
 
 export interface UserStatistics {
@@ -38,14 +57,12 @@ export interface UserStatistics {
 }
 
 export const userApi = {
-  // 获取用户历史数据
   getHistory: (limitDays: number = 30) => {
     return apiClient.get<UserHistoryResponse>('/user/profile/history', {
       params: { limit_days: limitDays }
     })
   },
 
-  // 获取用户统计数据
   getStatistics: () => {
     return apiClient.get<UserStatistics>('/user/profile/statistics')
   }

@@ -9,8 +9,13 @@ import type {
   UserWeightTimeSeries,
   CountryWeightData,
   UserWeightData,
-  SummaryStatistics
-} from '@/types/leaderboard'
+  SummaryStatistics,
+   ValueFactorAnalysisResponse,
+   ValueFactorUserChangePageResponse,
+   CombinedAnalysisResponse,
+   CombinedUserChangePageResponse,
+   UserMetricTrendResponse
+ } from '@/types/leaderboard'
 
 export const leaderboardApi = {
   getCountryWeightTimeSeries: (countries?: string, limitDays: number = 30) => {
@@ -131,6 +136,96 @@ export const leaderboardApi = {
   getGeniusLevelWeightChanges: (days: number = 7) => {
     return apiClient.get<GeniusLevelWeightChange[]>('/leaderboard/genius-level-weight-changes', {
       params: { days }
+    })
+  },
+
+  getValueFactorAnalysis: (excludeBothHalf: boolean = false) => {
+    return apiClient.get<ValueFactorAnalysisResponse>('/leaderboard/value-factor-analysis', {
+      params: { exclude_both_half: excludeBothHalf }
+    })
+  },
+
+  getValueFactorUserChanges: (options?: {
+    sortBy?: 'change' | 'base_value_factor' | 'target_value_factor'
+    sortOrder?: 'desc' | 'asc'
+    page?: number
+    pageSize?: number
+    countries?: string[]
+    geniusLevels?: string[]
+    excludeBothHalf?: boolean
+  }) => {
+    const params: any = {
+      sort_by: options?.sortBy ?? 'change',
+      sort_order: options?.sortOrder ?? 'desc',
+      page: options?.page ?? 1,
+      page_size: options?.pageSize ?? 20,
+      exclude_both_half: options?.excludeBothHalf ?? false
+    }
+
+    if (options?.countries && options.countries.length > 0) {
+      params.countries = options.countries.join(',')
+    }
+    if (options?.geniusLevels && options.geniusLevels.length > 0) {
+      params.genius_levels = options.geniusLevels.join(',')
+    }
+
+    return apiClient.get<ValueFactorUserChangePageResponse>('/leaderboard/value-factor-user-changes', { params })
+  },
+
+  getCombinedAnalysis: (options?: {
+    countries?: string[]
+    geniusLevels?: string[]
+    excludeAlphaBothZero?: boolean
+    excludePowerPoolBothZero?: boolean
+    excludeSelectedBothZero?: boolean
+  }) => {
+    const params: any = {}
+    if (options?.countries && options.countries.length > 0) {
+      params.countries = options.countries.join(',')
+    }
+    if (options?.geniusLevels && options.geniusLevels.length > 0) {
+      params.levels = options.geniusLevels.join(',')
+    }
+    params.exclude_alpha_both_zero = options?.excludeAlphaBothZero ?? false
+    params.exclude_power_pool_both_zero = options?.excludePowerPoolBothZero ?? false
+    params.exclude_selected_both_zero = options?.excludeSelectedBothZero ?? false
+    return apiClient.get<CombinedAnalysisResponse>('/leaderboard/combined-analysis', { params })
+  },
+
+  getCombinedUserChanges: (options?: {
+    sortBy?: 'alpha_change' | 'power_pool_change' | 'selected_change' | 'base_alpha' | 'target_alpha' | 'base_power_pool' | 'target_power_pool' | 'base_selected' | 'target_selected'
+    sortOrder?: 'desc' | 'asc'
+    page?: number
+    pageSize?: number
+    countries?: string[]
+    geniusLevels?: string[]
+    excludeAlphaBothZero?: boolean
+    excludePowerPoolBothZero?: boolean
+    excludeSelectedBothZero?: boolean
+  }) => {
+    const params: any = {
+      sort_by: options?.sortBy ?? 'alpha_change',
+      sort_order: options?.sortOrder ?? 'desc',
+      page: options?.page ?? 1,
+      page_size: options?.pageSize ?? 20,
+      exclude_alpha_both_zero: options?.excludeAlphaBothZero ?? false,
+      exclude_power_pool_both_zero: options?.excludePowerPoolBothZero ?? false,
+      exclude_selected_both_zero: options?.excludeSelectedBothZero ?? false
+    }
+
+    if (options?.countries && options.countries.length > 0) {
+      params.countries = options.countries.join(',')
+    }
+    if (options?.geniusLevels && options.geniusLevels.length > 0) {
+      params.levels = options.geniusLevels.join(',')
+    }
+
+    return apiClient.get<CombinedUserChangePageResponse>('/leaderboard/combined-user-changes', { params })
+  },
+
+  getUserMetricTrends: (user: string) => {
+    return apiClient.get<UserMetricTrendResponse>('/leaderboard/user-metric-trends', {
+      params: { user }
     })
   }
 }
