@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import VChart from 'vue-echarts'
@@ -68,7 +68,7 @@ const fetchStatistics = async () => {
     }
     await fetchHistory()
   } catch (error: any) {
-    console.error('获取统计数据失败:', error)
+    console.error('鑾峰彇缁熻鏁版嵁澶辫触:', error)
   } finally {
     statsLoading.value = false
   }
@@ -82,7 +82,7 @@ const fetchHistory = async () => {
     valueFactorTrend.value = response.data.value_factor_trend || []
     combinedTrend.value = response.data.combined_trend || []
   } catch (error: any) {
-    console.error('获取历史数据失败:', error)
+    console.error('鑾峰彇鍘嗗彶鏁版嵁澶辫触:', error)
   } finally {
     historyLoading.value = false
   }
@@ -101,26 +101,26 @@ const statCards = computed(() => {
       label: '当前 Weight',
       value: stats.current_weight,
       precision: 2,
-      icon: '⚖️'
+      icon: '鈿栵笍'
     },
     {
       label: '历史最高',
       value: stats.max_weight,
       precision: 2,
-      icon: '🏆'
+      icon: '馃弳'
     },
     {
       label: '单日最大变化',
       value: stats.max_daily_change,
       precision: 2,
-      icon: '📈',
+      icon: '馃搱',
       note: stats.max_change_date ? `日期 ${stats.max_change_date}` : ''
     },
     {
       label: '今日变化',
       value: stats.daily_change,
       precision: 2,
-      icon: '📊',
+      icon: '馃搳',
       formatter: formatSigned,
       valueStyle: {
         color: stats.daily_change >= 0 ? 'var(--accent-2)' : '#a6322a'
@@ -184,8 +184,9 @@ const valueFactorOption = computed<EChartsOption | null>(() => {
   return {
     tooltip: {
       trigger: 'axis',
-      formatter: (params: any[]) => {
-        const point = params?.[0]
+      formatter: (params: any) => {
+        const points = Array.isArray(params) ? params : [params]
+        const point = points[0]
         if (!point) return ''
         const updateDate = valueFactorChartData.value.updateDates[point.dataIndex] || '-'
         const displayValue = point.value === null || point.value === undefined ? '-' : Number(point.value).toFixed(4)
@@ -249,11 +250,12 @@ const combinedOption = computed<EChartsOption | null>(() => {
   return {
     tooltip: {
       trigger: 'axis',
-      formatter: (params: any[]) => {
-        const index = params?.[0]?.dataIndex ?? 0
+      formatter: (params: any) => {
+        const points = Array.isArray(params) ? params : [params]
+        const index = points[0]?.dataIndex ?? 0
         const dateRange = combinedChartData.value.labels[index] || '-'
         const updateDate = combinedChartData.value.updateDates[index] || '-'
-        const lines = (params || []).map((item: any) => {
+        const lines = points.map((item: any) => {
           const value = item.value === null || item.value === undefined ? '-' : Number(item.value).toFixed(4)
           return `${item.marker}${item.seriesName}: ${value}`
         })
@@ -338,10 +340,10 @@ onMounted(() => {
     <section class="page-header-wrap">
       <div class="page-header">
         <div class="user-info">
-          <h1 class="page-title">个人中心</h1>
+          <h1 class="page-title">涓汉涓績</h1>
           <p class="user-subtitle">{{ currentUser.username || currentUser.wq_id }}</p>
         </div>
-        <el-button class="logout-btn" @click="handleLogout">登出</el-button>
+        <el-button class="logout-btn" @click="handleLogout">鐧诲嚭</el-button>
       </div>
     </section>
 
@@ -372,7 +374,7 @@ onMounted(() => {
           </el-card>
         </el-col>
       </el-row>
-      <el-empty v-else description="暂无统计数据" />
+      <el-empty v-else description="鏆傛棤缁熻鏁版嵁" />
     </section>
 
     <el-card class="chart-section" shadow="never">
@@ -389,14 +391,14 @@ onMounted(() => {
       <div v-else-if="weightChartData.dates.length > 0" class="chart-container">
         <WeightTrendChart :data="weightChartData" />
       </div>
-      <el-empty v-else description="暂无数据" />
+      <el-empty v-else description="鏆傛棤鏁版嵁" />
     </el-card>
 
     <section class="trend-grid">
       <el-card class="chart-section trend-card" shadow="never">
         <template #header>
           <div class="section-header">
-            <span class="section-title">Value Factor 变化趋势</span>
+            <span class="section-title">Value Factor 鍙樺寲瓒嬪娍</span>
           </div>
         </template>
 
@@ -404,13 +406,13 @@ onMounted(() => {
           <el-skeleton :rows="4" animated />
         </div>
         <v-chart v-else-if="valueFactorOption" :option="valueFactorOption" :autoresize="true" class="trend-chart" />
-        <el-empty v-else description="暂无 Value Factor 数据" />
+        <el-empty v-else description="鏆傛棤 Value Factor 鏁版嵁" />
       </el-card>
 
       <el-card class="chart-section trend-card" shadow="never">
         <template #header>
           <div class="section-header">
-            <span class="section-title">Combined 变化趋势</span>
+            <span class="section-title">Combined 鍙樺寲瓒嬪娍</span>
           </div>
         </template>
 
@@ -418,7 +420,7 @@ onMounted(() => {
           <el-skeleton :rows="4" animated />
         </div>
         <v-chart v-else-if="combinedOption" :option="combinedOption" :autoresize="true" class="trend-chart" />
-        <el-empty v-else description="暂无 Combined 数据" />
+        <el-empty v-else description="鏆傛棤 Combined 鏁版嵁" />
       </el-card>
     </section>
 
@@ -449,28 +451,28 @@ onMounted(() => {
             {{ row.value_factor !== null && row.value_factor !== undefined ? row.value_factor.toFixed(2) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="Regular Alpha提交数" min-width="140" align="center">
+        <el-table-column label="Regular Alpha 提交数" min-width="140" align="center">
           <template #default="{ row }">{{ row.submissions_count ?? '-' }}</template>
         </el-table-column>
-        <el-table-column label="Regular Alpha生产相关" min-width="160" align="right">
+        <el-table-column label="Regular Alpha 生产相关" min-width="160" align="right">
           <template #default="{ row }">
             {{ row.mean_prod_correlation !== null && row.mean_prod_correlation !== undefined ? row.mean_prod_correlation.toFixed(4) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="Regular Alpha自相关" min-width="140" align="right">
+        <el-table-column label="Regular Alpha 自相关" min-width="140" align="right">
           <template #default="{ row }">
             {{ row.mean_self_correlation !== null && row.mean_self_correlation !== undefined ? row.mean_self_correlation.toFixed(4) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="Super Alpha提交数" min-width="140" align="center">
+        <el-table-column label="Super Alpha 提交数" min-width="140" align="center">
           <template #default="{ row }">{{ row.super_alpha_submissions_count ?? '-' }}</template>
         </el-table-column>
-        <el-table-column label="Super Alpha生产相关" min-width="160" align="right">
+        <el-table-column label="Super Alpha 生产相关" min-width="160" align="right">
           <template #default="{ row }">
             {{ row.super_alpha_mean_prod_correlation !== null && row.super_alpha_mean_prod_correlation !== undefined ? row.super_alpha_mean_prod_correlation.toFixed(4) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="Super Alpha自相关" min-width="140" align="right">
+        <el-table-column label="Super Alpha 自相关" min-width="140" align="right">
           <template #default="{ row }">
             {{ row.super_alpha_mean_self_correlation !== null && row.super_alpha_mean_self_correlation !== undefined ? row.super_alpha_mean_self_correlation.toFixed(4) : '-' }}
           </template>
