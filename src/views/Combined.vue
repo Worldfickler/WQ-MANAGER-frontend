@@ -272,7 +272,7 @@ const dialogValueFactorOption = computed(() => {
       formatter: (params: any[]) => {
         const point = params?.[0]
         if (!point) return ''
-        const value = point.value === null || point.value === undefined ? '-' : Number(point.value).toFixed(4)
+        const value = point.value === null || point.value === undefined ? '-' : Number(point.value).toFixed(2)
         const updateDate = updateDates[point.dataIndex] || '-'
         return `区间: ${point.axisValue}<br/>更新时间: ${updateDate}<br/>Value Factor: ${value}`
       }
@@ -320,7 +320,7 @@ const dialogCombinedOption = computed(() => {
         const dateRange = labels[index] || '-'
         const updateDate = updateDates[index] || '-'
         const lines = (params || []).map((item: any) => {
-          const value = item.value === null || item.value === undefined ? '-' : Number(item.value).toFixed(4)
+          const value = item.value === null || item.value === undefined ? '-' : Number(item.value).toFixed(2)
           return `${item.marker}${item.seriesName}: ${value}`
         })
         return [`区间: ${dateRange}`, `更新时间: ${updateDate}`, ...lines].join('<br/>')

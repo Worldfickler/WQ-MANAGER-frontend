@@ -68,7 +68,7 @@ const fetchStatistics = async () => {
     }
     await fetchHistory()
   } catch (error: any) {
-    console.error('鑾峰彇缁熻鏁版嵁澶辫触:', error)
+    console.error('获取统计数据失败:', error)
   } finally {
     statsLoading.value = false
   }
@@ -82,7 +82,7 @@ const fetchHistory = async () => {
     valueFactorTrend.value = response.data.value_factor_trend || []
     combinedTrend.value = response.data.combined_trend || []
   } catch (error: any) {
-    console.error('鑾峰彇鍘嗗彶鏁版嵁澶辫触:', error)
+    console.error('获取历史数据失败:', error)
   } finally {
     historyLoading.value = false
   }
@@ -101,26 +101,26 @@ const statCards = computed(() => {
       label: '当前 Weight',
       value: stats.current_weight,
       precision: 2,
-      icon: '鈿栵笍'
+      icon: '⚖️'
     },
     {
       label: '历史最高',
       value: stats.max_weight,
       precision: 2,
-      icon: '馃弳'
+      icon: '🏆'
     },
     {
       label: '单日最大变化',
       value: stats.max_daily_change,
       precision: 2,
-      icon: '馃搱',
+      icon: '📈',
       note: stats.max_change_date ? `日期 ${stats.max_change_date}` : ''
     },
     {
       label: '今日变化',
       value: stats.daily_change,
       precision: 2,
-      icon: '馃搳',
+      icon: '📊',
       formatter: formatSigned,
       valueStyle: {
         color: stats.daily_change >= 0 ? 'var(--accent-2)' : '#a6322a'
@@ -189,7 +189,7 @@ const valueFactorOption = computed<EChartsOption | null>(() => {
         const point = points[0]
         if (!point) return ''
         const updateDate = valueFactorChartData.value.updateDates[point.dataIndex] || '-'
-        const displayValue = point.value === null || point.value === undefined ? '-' : Number(point.value).toFixed(4)
+        const displayValue = point.value === null || point.value === undefined ? '-' : Number(point.value).toFixed(2)
         return `区间: ${point.axisValue}<br/>更新时间: ${updateDate}<br/>Value Factor: ${displayValue}`
       }
     },
@@ -256,7 +256,7 @@ const combinedOption = computed<EChartsOption | null>(() => {
         const dateRange = combinedChartData.value.labels[index] || '-'
         const updateDate = combinedChartData.value.updateDates[index] || '-'
         const lines = points.map((item: any) => {
-          const value = item.value === null || item.value === undefined ? '-' : Number(item.value).toFixed(4)
+          const value = item.value === null || item.value === undefined ? '-' : Number(item.value).toFixed(2)
           return `${item.marker}${item.seriesName}: ${value}`
         })
         return [`区间: ${dateRange}`, `更新时间: ${updateDate}`, ...lines].join('<br/>')
@@ -340,10 +340,10 @@ onMounted(() => {
     <section class="page-header-wrap">
       <div class="page-header">
         <div class="user-info">
-          <h1 class="page-title">涓汉涓績</h1>
+          <h1 class="page-title">个人中心</h1>
           <p class="user-subtitle">{{ currentUser.username || currentUser.wq_id }}</p>
         </div>
-        <el-button class="logout-btn" @click="handleLogout">鐧诲嚭</el-button>
+        <el-button class="logout-btn" @click="handleLogout">退出登录</el-button>
       </div>
     </section>
 
@@ -374,7 +374,7 @@ onMounted(() => {
           </el-card>
         </el-col>
       </el-row>
-      <el-empty v-else description="鏆傛棤缁熻鏁版嵁" />
+      <el-empty v-else description="暂无统计数据" />
     </section>
 
     <el-card class="chart-section" shadow="never">
@@ -391,14 +391,14 @@ onMounted(() => {
       <div v-else-if="weightChartData.dates.length > 0" class="chart-container">
         <WeightTrendChart :data="weightChartData" />
       </div>
-      <el-empty v-else description="鏆傛棤鏁版嵁" />
+      <el-empty v-else description="暂无数据" />
     </el-card>
 
     <section class="trend-grid">
       <el-card class="chart-section trend-card" shadow="never">
         <template #header>
           <div class="section-header">
-            <span class="section-title">Value Factor 鍙樺寲瓒嬪娍</span>
+            <span class="section-title">Value Factor 变化趋势</span>
           </div>
         </template>
 
@@ -406,13 +406,13 @@ onMounted(() => {
           <el-skeleton :rows="4" animated />
         </div>
         <v-chart v-else-if="valueFactorOption" :option="valueFactorOption" :autoresize="true" class="trend-chart" />
-        <el-empty v-else description="鏆傛棤 Value Factor 鏁版嵁" />
+        <el-empty v-else description="暂无 Value Factor 数据" />
       </el-card>
 
       <el-card class="chart-section trend-card" shadow="never">
         <template #header>
           <div class="section-header">
-            <span class="section-title">Combined 鍙樺寲瓒嬪娍</span>
+            <span class="section-title">Combined 变化趋势</span>
           </div>
         </template>
 
@@ -420,7 +420,7 @@ onMounted(() => {
           <el-skeleton :rows="4" animated />
         </div>
         <v-chart v-else-if="combinedOption" :option="combinedOption" :autoresize="true" class="trend-chart" />
-        <el-empty v-else description="鏆傛棤 Combined 鏁版嵁" />
+        <el-empty v-else description="暂无 Combined 数据" />
       </el-card>
     </section>
 
