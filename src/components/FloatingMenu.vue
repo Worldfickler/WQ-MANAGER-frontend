@@ -52,6 +52,9 @@ const handleMenuClick = (action: string) => {
     case 'combined':
       router.push('/combined')
       break
+    case 'consultant':
+      router.push('/consultant')
+      break
     case 'home':
       router.push('/')
       break
@@ -71,8 +74,9 @@ const menuItems = [
   { id: 4, icon: '📌', label: 'Notice', action: 'notice' },
   { id: 5, icon: '💠', label: 'Value', action: 'value-factor' },
   { id: 6, icon: '🧩', label: 'Combined', action: 'combined' },
-  { id: 7, icon: '🏠', label: 'Home', action: 'home' },
-  { id: 8, icon: '📝', label: 'Feedback', action: 'feedback' }
+  { id: 7, icon: '🗂️', label: 'Consultant', action: 'consultant' },
+  { id: 8, icon: '🏠', label: 'Home', action: 'home' },
+  { id: 9, icon: '📝', label: 'Feedback', action: 'feedback' }
 ]
 
 const submitFeedback = async () => {
@@ -353,6 +357,9 @@ const handleDialogClosed = () => {
 }
 .menu-item:nth-child(8) {
   animation-delay: 0.4s;
+}
+.menu-item:nth-child(9) {
+  animation-delay: 0.45s;
 }
 
 @keyframes slideIn {

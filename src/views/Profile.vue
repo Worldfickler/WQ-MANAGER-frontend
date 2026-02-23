@@ -32,7 +32,9 @@ const historyData = ref<UserHistoryRecord[]>([])
 const valueFactorTrend = ref<ValueFactorTrendRecord[]>([])
 const combinedTrend = ref<CombinedTrendRecord[]>([])
 const historyLoading = ref(false)
-const selectedDays = ref(3650)
+const dailyOsmosisStartDate = '2026-02-16'
+const selectedOsmosisDateRange = ref<string[] | null>(null)
+const isOsmosisCardFlipped = ref(false)
 
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -63,9 +65,6 @@ const fetchStatistics = async () => {
   try {
     const response = await userApi.getStatistics()
     statistics.value = response.data
-    if (response.data.record_days && response.data.record_days > 0) {
-      selectedDays.value = response.data.record_days
-    }
     await fetchHistory()
   } catch (error: any) {
     console.error('获取统计数据失败:', error)
@@ -77,10 +76,15 @@ const fetchStatistics = async () => {
 const fetchHistory = async () => {
   historyLoading.value = true
   try {
-    const response = await userApi.getHistory(selectedDays.value)
+    const response = await userApi.getHistory(3650)
     historyData.value = response.data.data || []
     valueFactorTrend.value = response.data.value_factor_trend || []
     combinedTrend.value = response.data.combined_trend || []
+    const latestOsmosisDate = [...historyData.value]
+      .reverse()
+      .find(item => item.record_date && item.daily_osmosis_rank !== null && item.daily_osmosis_rank !== undefined)?.record_date
+    selectedOsmosisDateRange.value = latestOsmosisDate ? [dailyOsmosisStartDate, latestOsmosisDate] : null
+    currentPage.value = 1
   } catch (error: any) {
     console.error('获取历史数据失败:', error)
   } finally {
@@ -135,6 +139,84 @@ const weightChartData = computed(() => {
     dates: historyData.value.map(item => item.record_date),
     weights: historyData.value.map(item => item.weight_factor || 0)
   }
+})
+
+const parseDay = (value: string) => new Date(`${value}T00:00:00`)
+const weekDayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const formatDay = (value: Date) => {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const getWeekStart = (value: string) => {
+  const date = parseDay(value)
+  const weekday = (date.getDay() + 6) % 7
+  date.setDate(date.getDate() - weekday)
+  return date
+}
+
+const getWeekdayIndex = (value: string) => (parseDay(value).getDay() + 6) % 7
+
+const osmosisBaseHistory = computed(() => {
+  const start = parseDay(dailyOsmosisStartDate)
+  return historyData.value.filter(item => {
+    if (!item.record_date) return false
+    if (item.daily_osmosis_rank === null || item.daily_osmosis_rank === undefined) return false
+    return parseDay(item.record_date) >= start
+  })
+})
+
+const filteredDailyOsmosisHistory = computed(() => {
+  if (!osmosisBaseHistory.value.length || !selectedOsmosisDateRange.value || selectedOsmosisDateRange.value.length !== 2) {
+    return osmosisBaseHistory.value
+  }
+  const [startDate, endDate] = selectedOsmosisDateRange.value
+  const start = parseDay(startDate)
+  const end = parseDay(endDate)
+  return osmosisBaseHistory.value.filter(item => item.record_date && parseDay(item.record_date) >= start && parseDay(item.record_date) <= end)
+})
+
+const dailyOsmosisChartData = computed(() => ({
+  labels: filteredDailyOsmosisHistory.value.map(item => item.record_date),
+  values: filteredDailyOsmosisHistory.value.map(item => item.daily_osmosis_rank)
+}))
+
+const weeklyOsmosisChartData = computed(() => {
+  const grouped = new Map<string, { weekStart: string; weekEnd: string; values: Array<number | null> }>()
+
+  filteredDailyOsmosisHistory.value.forEach(item => {
+    if (!item.record_date || item.daily_osmosis_rank === null || item.daily_osmosis_rank === undefined) return
+    const weekStartDate = getWeekStart(item.record_date)
+    const weekStart = formatDay(weekStartDate)
+    const weekday = getWeekdayIndex(item.record_date)
+
+    if (!grouped.has(weekStart)) {
+      const weekEndDate = parseDay(weekStart)
+      weekEndDate.setDate(weekEndDate.getDate() + 6)
+      grouped.set(weekStart, {
+        weekStart,
+        weekEnd: formatDay(weekEndDate),
+        values: Array.from({ length: 7 }, () => null)
+      })
+    }
+
+    const weekGroup = grouped.get(weekStart)
+    if (!weekGroup) return
+    weekGroup.values[weekday] = Number(item.daily_osmosis_rank)
+  })
+
+  return [...grouped.values()]
+    .sort((a, b) => a.weekStart.localeCompare(b.weekStart))
+    .map(week => {
+      const validRanks = week.values.filter((value): value is number => value !== null && value !== undefined)
+      const averageRank = validRanks.length ? validRanks.reduce((sum, value) => sum + value, 0) / validRanks.length : null
+      return {
+        ...week,
+        averageRank
+      }
+    })
 })
 
 const valueFactorChartData = computed(() => ({
@@ -326,6 +408,161 @@ const combinedOption = computed<EChartsOption | null>(() => {
   }
 })
 
+const dailyOsmosisOption = computed<EChartsOption | null>(() => {
+  if (!dailyOsmosisChartData.value.labels.length) return null
+
+  const validValues = pickValidNumbers(dailyOsmosisChartData.value.values)
+  if (!validValues.length) return null
+
+  return {
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params: any) => {
+        const points = Array.isArray(params) ? params : [params]
+        const point = points[0]
+        if (!point) return ''
+        const displayValue = point.value === null || point.value === undefined ? '-' : Number(point.value).toFixed(2)
+        return `日期: ${point.axisValue}<br/>Daily Osmosis Rank: ${displayValue}`
+      }
+    },
+    grid: {
+      left: '4%',
+      right: '4%',
+      top: '10%',
+      bottom: '10%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: dailyOsmosisChartData.value.labels,
+      boundaryGap: false,
+      axisLabel: {
+        interval: 0,
+        hideOverlap: false,
+        rotate: 25,
+        margin: 10,
+        color: '#6f665d'
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: 'Rank',
+      min: 0,
+      max: 1,
+      scale: false,
+      axisLabel: { formatter: (value: number) => value.toFixed(2) }
+    },
+    series: [
+      {
+        name: 'Daily Osmosis Rank',
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        data: dailyOsmosisChartData.value.values,
+        itemStyle: { color: '#1f6f78' },
+        lineStyle: { width: 2 },
+        areaStyle: { color: 'rgba(31, 111, 120, 0.12)' },
+        markLine: {
+          symbol: ['none', 'arrow'],
+          symbolSize: 10,
+          data: [{ type: 'average', name: '平均值' }]
+        }
+      }
+    ]
+  }
+})
+
+const weeklyOsmosisOption = computed<EChartsOption | null>(() => {
+  if (!weeklyOsmosisChartData.value.length) return null
+
+  const validValues = pickValidNumbers(weeklyOsmosisChartData.value.flatMap(item => item.values))
+  if (!validValues.length) return null
+  const colorByIndex = (index: number) =>
+    `hsl(${Math.round((index * 360) / Math.max(weeklyOsmosisChartData.value.length, 1))}, 70%, 45%)`
+
+  return {
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params: any) => {
+        const points = Array.isArray(params) ? params : [params]
+        const point = points[0]
+        if (!point) return ''
+        const lines = points
+          .filter((item: any) => item.value !== null && item.value !== undefined)
+          .map((item: any) => {
+          const value = item.value === null || item.value === undefined ? '-' : Number(item.value).toFixed(2)
+          return `${item.marker}${item.seriesName}: ${value}`
+          })
+        return [`星期: ${point.axisValue}`, ...(lines.length ? lines : ['无数据'])].join('<br/>')
+      }
+    },
+    legend: {
+      type: 'scroll',
+      top: 0,
+      textStyle: { color: '#6f665d' }
+    },
+    grid: {
+      left: '4%',
+      right: '4%',
+      top: '20%',
+      bottom: '10%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: weekDayLabels,
+      boundaryGap: false,
+      axisLabel: {
+        interval: 0,
+        rotate: 0,
+        margin: 10,
+        color: '#6f665d'
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: 'Rank',
+      min: 0,
+      max: 1,
+      scale: false,
+      axisLabel: { formatter: (value: number) => value.toFixed(2) }
+    },
+    series: weeklyOsmosisChartData.value.map((week, index) => {
+      const color = colorByIndex(index)
+      return {
+        name: `${week.weekStart} ~ ${week.weekEnd}`,
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        connectNulls: false,
+        data: week.values,
+        itemStyle: { color },
+        lineStyle: { width: 2, opacity: 0.95 },
+        emphasis: {
+          focus: 'series',
+          lineStyle: { width: 3 }
+        },
+        markLine: week.averageRank === null
+          ? undefined
+          : {
+              symbol: ['none', 'arrow'],
+              symbolSize: 10,
+              data: [
+                {
+                  name: '平均值',
+                  yAxis: Number(week.averageRank.toFixed(2))
+                }
+              ]
+            }
+      }
+    })
+  }
+})
+
+const toggleOsmosisCard = () => {
+  isOsmosisCardFlipped.value = !isOsmosisCardFlipped.value
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -394,6 +631,45 @@ onMounted(() => {
       <el-empty v-else description="暂无数据" />
     </el-card>
 
+    <el-card class="chart-section" shadow="never">
+      <template #header>
+        <div class="section-header">
+          <span class="section-title">Daily Osmosis Rank 变化趋势</span>
+          <div class="section-actions">
+            <el-date-picker
+              v-model="selectedOsmosisDateRange"
+              type="daterange"
+              value-format="YYYY-MM-DD"
+              format="YYYY-MM-DD"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+               class="date-range-picker"
+               unlink-panels
+             />
+            <el-button class="flip-toggle-btn" text @click="toggleOsmosisCard">
+              {{ isOsmosisCardFlipped ? '切换到日维度' : '切换到周维度' }}
+            </el-button>
+          </div>
+        </div>
+      </template>
+
+      <div v-if="historyLoading" class="chart-loading">
+        <el-skeleton :rows="4" animated />
+      </div>
+      <div v-else class="osmosis-flip-wrapper">
+        <div class="osmosis-flip-inner" :class="{ 'is-flipped': isOsmosisCardFlipped }">
+          <div class="osmosis-face osmosis-face-front">
+            <v-chart v-if="dailyOsmosisOption" :option="dailyOsmosisOption" :autoresize="true" class="trend-chart osmosis-chart" />
+            <el-empty v-else description="暂无 Daily Osmosis Rank 数据" />
+          </div>
+          <div class="osmosis-face osmosis-face-back">
+            <v-chart v-if="weeklyOsmosisOption" :option="weeklyOsmosisOption" :autoresize="true" class="trend-chart osmosis-chart" />
+            <el-empty v-else description="暂无周维度数据" />
+          </div>
+        </div>
+      </div>
+    </el-card>
+
     <section class="trend-grid">
       <el-card class="chart-section trend-card" shadow="never">
         <template #header>
@@ -422,6 +698,7 @@ onMounted(() => {
         <v-chart v-else-if="combinedOption" :option="combinedOption" :autoresize="true" class="trend-chart" />
         <el-empty v-else description="暂无 Combined 数据" />
       </el-card>
+
     </section>
 
     <el-card class="history-section" shadow="never">
@@ -449,6 +726,11 @@ onMounted(() => {
         <el-table-column label="Value Factor" min-width="120" align="right">
           <template #default="{ row }">
             {{ row.value_factor !== null && row.value_factor !== undefined ? row.value_factor.toFixed(2) : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="Daily Osmosis Rank" min-width="150" align="right">
+          <template #default="{ row }">
+            {{ row.daily_osmosis_rank !== null && row.daily_osmosis_rank !== undefined ? row.daily_osmosis_rank : '-' }}
           </template>
         </el-table-column>
         <el-table-column label="Regular Alpha 提交数" min-width="140" align="center">
@@ -626,12 +908,98 @@ onMounted(() => {
   color: var(--ink-soft);
 }
 
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.flip-toggle-btn {
+  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.date-range-picker {
+  width: 320px;
+}
+
+.date-range-picker :deep(.el-input__wrapper) {
+  min-height: 34px;
+  border-radius: 10px;
+}
+
 .chart-container {
   min-height: 360px;
 }
 
 .trend-chart {
   width: 100%;
+  min-height: 360px;
+}
+
+.osmosis-flip-wrapper {
+  perspective: 1800px;
+  min-height: 360px;
+  overflow: hidden;
+}
+
+.osmosis-flip-inner {
+  position: relative;
+  min-height: 360px;
+  will-change: filter;
+  transition: filter 0.55s ease;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.04));
+}
+
+.osmosis-flip-inner.is-flipped {
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.07));
+}
+
+.osmosis-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  will-change: transform, opacity;
+  transition:
+    transform 0.72s cubic-bezier(0.22, 0.9, 0.25, 1),
+    opacity 0.48s ease;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: flat;
+}
+
+.osmosis-face-front {
+  z-index: 2;
+  opacity: 1;
+  transform: rotateY(0deg);
+  pointer-events: auto;
+}
+
+.osmosis-face-back {
+  z-index: 1;
+  opacity: 0;
+  transform: rotateY(-180deg);
+  pointer-events: none;
+}
+
+.osmosis-flip-inner.is-flipped .osmosis-face-front {
+  z-index: 1;
+  opacity: 0;
+  transform: rotateY(180deg);
+  pointer-events: none;
+}
+
+.osmosis-flip-inner.is-flipped .osmosis-face-back {
+  z-index: 2;
+  opacity: 1;
+  transform: rotateY(0deg);
+  pointer-events: auto;
+}
+
+.osmosis-chart {
+  height: 360px;
   min-height: 360px;
 }
 
@@ -673,6 +1041,18 @@ onMounted(() => {
 @media (max-width: 900px) {
   .page-header {
     flex-direction: column;
+    align-items: flex-start;
+  }
+  .section-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .date-range-picker {
+    width: 100%;
+    max-width: 320px;
+  }
+  .section-actions {
+    flex-wrap: wrap;
     align-items: flex-start;
   }
 }

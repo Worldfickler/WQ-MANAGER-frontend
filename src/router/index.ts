@@ -8,6 +8,7 @@ import Genius from '@/views/Genius.vue'
 import Notice from '@/views/Notice.vue'
 import ValueFactor from '@/views/ValueFactor.vue'
 import Combined from '@/views/Combined.vue'
+import Consultant from '@/views/Consultant.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -64,6 +65,12 @@ const router = createRouter({
       path: '/combined',
       name: 'Combined',
       component: Combined,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/consultant',
+      name: 'Consultant',
+      component: Consultant,
       meta: { requiresAuth: true }
     }
   ]

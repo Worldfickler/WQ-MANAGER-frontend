@@ -67,6 +67,12 @@ export interface UserWeightTimeSeries {
   weights: number[]
 }
 
+export interface UserDailyOsmosisTimeSeries {
+  user: string
+  dates: string[]
+  daily_osmosis_ranks: number[]
+}
+
 export interface GeniusLevelWeightChange {
   genius_level: string
   total_users: number
@@ -192,6 +198,61 @@ export interface CombinedUserChangePageResponse {
   page: number
   page_size: number
   items: CombinedUserChangeItem[]
+}
+
+export interface ConsultantMergedSummary {
+  total_users: number
+  consultant_users: number
+  genius_users: number
+  matched_users: number
+  country_count: number
+  genius_level_count: number
+}
+
+export interface ConsultantMergedRow {
+  user: string
+  country?: string | null
+  consultant_country?: string | null
+  genius_country?: string | null
+  university?: string | null
+  has_consultant_record: boolean
+  has_genius_record: boolean
+
+  weight_factor?: number | null
+  value_factor?: number | null
+  daily_osmosis_rank?: number | null
+  data_fields_used?: number | null
+  submissions_count?: number | null
+  mean_prod_correlation?: number | null
+  mean_self_correlation?: number | null
+  super_alpha_submissions_count?: number | null
+  super_alpha_mean_prod_correlation?: number | null
+  super_alpha_mean_self_correlation?: number | null
+
+  genius_rank?: number | null
+  genius_level?: string | null
+  best_level?: string | null
+  alpha_count?: number | null
+  pyramid_count?: number | null
+  combined_alpha_performance?: number | null
+  combined_power_pool_alpha_performance?: number | null
+  combined_selected_alpha_performance?: number | null
+  operator_count?: number | null
+  operator_avg?: number | null
+  field_count?: number | null
+  field_avg?: number | null
+  community_activity?: number | null
+  max_simulation_streak?: number | null
+}
+
+export interface ConsultantMergedPageResponse {
+  record_date?: string | null
+  available_record_dates: string[]
+  summary: ConsultantMergedSummary
+  total: number
+  page: number
+  page_size: number
+  items: ConsultantMergedRow[]
 }
 
 export interface ValueFactorTrendPoint {

@@ -4,6 +4,7 @@ export interface UserHistoryRecord {
   record_date: string
   weight_factor: number | null
   value_factor: number | null
+  daily_osmosis_rank: number | null
   combined_alpha_performance: number | null
   combined_power_pool_alpha_performance: number | null
   combined_selected_alpha_performance: number | null

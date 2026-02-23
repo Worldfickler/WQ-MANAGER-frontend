@@ -10,12 +10,14 @@ import type {
   CountryWeightData,
   UserWeightData,
   SummaryStatistics,
-   ValueFactorAnalysisResponse,
-   ValueFactorUserChangePageResponse,
-   CombinedAnalysisResponse,
-   CombinedUserChangePageResponse,
-   UserMetricTrendResponse
- } from '@/types/leaderboard'
+  ValueFactorAnalysisResponse,
+  ValueFactorUserChangePageResponse,
+  CombinedAnalysisResponse,
+  CombinedUserChangePageResponse,
+  UserMetricTrendResponse,
+  ConsultantMergedPageResponse,
+  UserDailyOsmosisTimeSeries
+} from '@/types/leaderboard'
 
 export const leaderboardApi = {
   getCountryWeightTimeSeries: (countries?: string, limitDays: number = 30) => {
@@ -227,6 +229,48 @@ export const leaderboardApi = {
     return apiClient.get<UserMetricTrendResponse>('/leaderboard/user-metric-trends', {
       params: { user }
     })
+  },
+
+  getConsultantUserDailyOsmosisTimeSeries: (user: string, startDate?: string, endDate?: string) => {
+    const params: any = { user }
+    if (startDate) {
+      params.start_date = startDate
+    }
+    if (endDate) {
+      params.end_date = endDate
+    }
+    return apiClient.get<UserDailyOsmosisTimeSeries>('/leaderboard/consultant-user-daily-osmosis-timeseries', { params })
+  },
+
+  getConsultantMergedPage: (options?: {
+    recordDate?: string
+    countries?: string[]
+    geniusLevels?: string[]
+    userKeyword?: string
+    sortBy?: 'user' | 'country' | 'university' | 'genius_level' | 'best_level' | 'weight_factor' | 'value_factor' | 'daily_osmosis_rank' | 'data_fields_used' | 'submissions_count' | 'mean_prod_correlation' | 'mean_self_correlation' | 'super_alpha_submissions_count' | 'super_alpha_mean_prod_correlation' | 'super_alpha_mean_self_correlation' | 'alpha_count' | 'pyramid_count' | 'combined_alpha_performance' | 'combined_power_pool_alpha_performance' | 'combined_selected_alpha_performance' | 'operator_count' | 'operator_avg' | 'field_count' | 'field_avg' | 'community_activity' | 'max_simulation_streak' | 'record_coverage'
+    sortOrder?: 'desc' | 'asc'
+    page?: number
+    pageSize?: number
+  }) => {
+    const params: any = {
+      sort_by: options?.sortBy ?? 'user',
+      sort_order: options?.sortOrder ?? 'asc',
+      page: options?.page ?? 1,
+      page_size: options?.pageSize ?? 20
+    }
+    if (options?.recordDate) {
+      params.record_date = options.recordDate
+    }
+    if (options?.countries && options.countries.length > 0) {
+      params.countries = options.countries.join(',')
+    }
+    if (options?.geniusLevels && options.geniusLevels.length > 0) {
+      params.levels = options.geniusLevels.join(',')
+    }
+    if (options?.userKeyword) {
+      params.user_keyword = options.userKeyword
+    }
+    return apiClient.get<ConsultantMergedPageResponse>('/leaderboard/consultant-merged-page', { params })
   }
 }
 
