@@ -16,7 +16,8 @@ import type {
   CombinedUserChangePageResponse,
   UserMetricTrendResponse,
   ConsultantMergedPageResponse,
-  UserDailyOsmosisTimeSeries
+  UserDailyOsmosisTimeSeries,
+  OsmosisPageResponse
 } from '@/types/leaderboard'
 
 export const leaderboardApi = {
@@ -240,6 +241,39 @@ export const leaderboardApi = {
       params.end_date = endDate
     }
     return apiClient.get<UserDailyOsmosisTimeSeries>('/leaderboard/consultant-user-daily-osmosis-timeseries', { params })
+  },
+
+  getOsmosisPage: (options?: {
+    startDate?: string
+    endDate?: string
+    countries?: string[]
+    userKeyword?: string
+    sortBy?: 'user' | 'country' | 'avg_osmosis_rank' | 'days_with_data' | 'above_avg_days' | 'below_avg_days' | 'max_osmosis_rank' | 'min_osmosis_rank'
+    sortOrder?: 'desc' | 'asc'
+    page?: number
+    pageSize?: number
+  }) => {
+    const params: any = {
+      sort_by: options?.sortBy ?? 'avg_osmosis_rank',
+      sort_order: options?.sortOrder ?? 'desc',
+      page: options?.page ?? 1,
+      page_size: options?.pageSize ?? 50
+    }
+
+    if (options?.startDate) {
+      params.start_date = options.startDate
+    }
+    if (options?.endDate) {
+      params.end_date = options.endDate
+    }
+    if (options?.countries && options.countries.length > 0) {
+      params.countries = options.countries.join(',')
+    }
+    if (options?.userKeyword) {
+      params.user_keyword = options.userKeyword
+    }
+
+    return apiClient.get<OsmosisPageResponse>('/leaderboard/osmosis-page', { params })
   },
 
   getConsultantMergedPage: (options?: {

@@ -73,6 +73,33 @@ export interface UserDailyOsmosisTimeSeries {
   daily_osmosis_ranks: number[]
 }
 
+export interface OsmosisSummary {
+  total_users: number
+  total_records: number
+  avg_osmosis_rank?: number | null
+  min_record_date?: string | null
+  max_record_date?: string | null
+}
+
+export interface OsmosisDailyRecordItem {
+  user: string
+  country?: string | null
+  avg_osmosis_rank: number
+  days_with_data: number
+  above_avg_days: number
+  below_avg_days: number
+  max_osmosis_rank: number
+  min_osmosis_rank: number
+}
+
+export interface OsmosisPageResponse {
+  summary: OsmosisSummary
+  total: number
+  page: number
+  page_size: number
+  items: OsmosisDailyRecordItem[]
+}
+
 export interface GeniusLevelWeightChange {
   genius_level: string
   total_users: number

@@ -9,6 +9,7 @@ import Notice from '@/views/Notice.vue'
 import ValueFactor from '@/views/ValueFactor.vue'
 import Combined from '@/views/Combined.vue'
 import Consultant from '@/views/Consultant.vue'
+import Osmosis from '@/views/Osmosis.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -71,6 +72,12 @@ const router = createRouter({
       path: '/consultant',
       name: 'Consultant',
       component: Consultant,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/osmosis',
+      name: 'Osmosis',
+      component: Osmosis,
       meta: { requiresAuth: true }
     }
   ]

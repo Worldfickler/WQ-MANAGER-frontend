@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
@@ -6,86 +6,54 @@ import type { EChartsOption } from 'echarts'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
-import WeightTrendChart from '@/components/WeightTrendChart.vue'
 import { leaderboardApi } from '@/api/leaderboard'
-import type { ConsultantMergedRow, ConsultantMergedSummary, UserMetricTrendResponse } from '@/types/leaderboard'
+import type { OsmosisDailyRecordItem, OsmosisSummary } from '@/types/leaderboard'
 
 use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, LegendComponent])
 
 type SortField =
   | 'user'
   | 'country'
-  | 'university'
-  | 'genius_level'
-  | 'best_level'
-  | 'weight_factor'
-  | 'value_factor'
-  | 'daily_osmosis_rank'
-  | 'data_fields_used'
-  | 'submissions_count'
-  | 'mean_prod_correlation'
-  | 'mean_self_correlation'
-  | 'super_alpha_submissions_count'
-  | 'super_alpha_mean_prod_correlation'
-  | 'super_alpha_mean_self_correlation'
-  | 'alpha_count'
-  | 'pyramid_count'
-  | 'combined_alpha_performance'
-  | 'combined_power_pool_alpha_performance'
-  | 'combined_selected_alpha_performance'
-  | 'operator_count'
-  | 'operator_avg'
-  | 'field_count'
-  | 'field_avg'
-  | 'community_activity'
-  | 'max_simulation_streak'
-  | 'record_coverage'
-
-const defaultSummary = (): ConsultantMergedSummary => ({
-  total_users: 0,
-  consultant_users: 0,
-  genius_users: 0,
-  matched_users: 0,
-  country_count: 0,
-  genius_level_count: 0
-})
+  | 'avg_osmosis_rank'
+  | 'days_with_data'
+  | 'above_avg_days'
+  | 'below_avg_days'
+  | 'max_osmosis_rank'
+  | 'min_osmosis_rank'
 
 const loading = ref(false)
 const filtersLoading = ref(false)
 const firstLoading = ref(true)
 const error = ref('')
+const defaultStartDate = '2026-02-16'
+
+const getTodayDate = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 const page = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(50)
 const total = ref(0)
-const rows = ref<ConsultantMergedRow[]>([])
+const rows = ref<OsmosisDailyRecordItem[]>([])
 
-const selectedRecordDate = ref('')
-const availableRecordDates = ref<string[]>([])
+const selectedDateRange = ref<string[] | null>([defaultStartDate, getTodayDate()])
 const selectedCountries = ref<string[]>([])
-const selectedGeniusLevels = ref<string[]>([])
-const userKeyword = ref('')
-
-const sortBy = ref<SortField>('user')
-const sortOrder = ref<'asc' | 'desc'>('asc')
-
 const countryOptions = ref<string[]>([])
-const geniusLevelOptions = ref<string[]>([])
-const summary = ref<ConsultantMergedSummary>(defaultSummary())
-const trendDialogVisible = ref(false)
-const trendDialogLoading = ref(false)
-const trendDialogError = ref('')
-const trendDialogUser = ref('')
-const trendDates = ref<string[]>([])
-const trendValues = ref<number[]>([])
-const trendMetricData = ref<UserMetricTrendResponse | null>(null)
-const trendWeightDates = ref<string[]>([])
-const trendWeightValues = ref<number[]>([])
-const dailyOsmosisStartDate = '2026-02-16'
-const weightTrendLookbackDays = 3650
-const selectedTrendDateRange = ref<string[] | null>(null)
-const isTrendCardFlipped = ref(false)
-const weekDayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const userKeyword = ref('')
+const sortBy = ref<SortField>('avg_osmosis_rank')
+const sortOrder = ref<'asc' | 'desc'>('desc')
+
+const summary = ref<OsmosisSummary>({
+  total_users: 0,
+  total_records: 0,
+  avg_osmosis_rank: null,
+  min_record_date: null,
+  max_record_date: null
+})
 
 const formatNumber = (value: number | null | undefined, digits: number = 2) => {
   if (value === null || value === undefined) return '-'
@@ -98,36 +66,19 @@ const formatInteger = (value: number | null | undefined) => {
 }
 
 const calcRank = (index: number) => (page.value - 1) * pageSize.value + index + 1
+const dailyOsmosisStartDate = defaultStartDate
+const trendDialogVisible = ref(false)
+const trendDialogLoading = ref(false)
+const trendDialogError = ref('')
+const trendDialogUser = ref('')
+const trendDates = ref<string[]>([])
+const trendValues = ref<number[]>([])
+const selectedTrendDateRange = ref<string[] | null>(null)
+const isTrendCardFlipped = ref(false)
+const weekDayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
 const pickValidNumbers = (values: Array<number | null | undefined>) =>
   values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value))
-
-const computeYAxisRange = (values: number[]) => {
-  if (!values.length) return { min: 0, max: 1 }
-  const dataMin = Math.min(...values)
-  const dataMax = Math.max(...values)
-  const range = dataMax - dataMin
-  const margin = Math.max(range * 0.12, Math.abs(dataMax) * 0.04, 0.05)
-  if (range === 0) {
-    const offset = Math.max(Math.abs(dataMax) * 0.08, 0.05)
-    return { min: dataMin - offset, max: dataMax + offset }
-  }
-  return { min: dataMin - margin, max: dataMax + margin }
-}
-
-const formatDateRangeLabel = (value: string) => {
-  if (!value) return value
-  return value.split('\u3001').join('\n')
-}
-
-const getDateDaysAgo = (days: number) => {
-  const date = new Date()
-  date.setDate(date.getDate() - days)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
 
 const parseDay = (value: string) => new Date(`${value}T00:00:00`)
 const formatDay = (value: Date) => {
@@ -218,39 +169,6 @@ const weeklyOsmosisTrendData = computed(() => {
       }
     })
 })
-
-const summaryCards = computed(() => [
-  {
-    label: 'Filtered Users',
-    value: summary.value.total_users.toLocaleString(),
-    note: selectedRecordDate.value ? `Date ${selectedRecordDate.value}` : 'Date not selected'
-  },
-  {
-    label: 'Consultant Coverage',
-    value: summary.value.consultant_users.toLocaleString(),
-    note: 'From leaderboard_consultant_user'
-  },
-  {
-    label: 'Genius Coverage',
-    value: summary.value.genius_users.toLocaleString(),
-    note: 'From leaderboard_genius_user'
-  },
-  {
-    label: 'Matched Users',
-    value: summary.value.matched_users.toLocaleString(),
-    note: 'Users found in both tables on selected date'
-  },
-  {
-    label: 'Countries',
-    value: summary.value.country_count.toLocaleString(),
-    note: 'Distinct countries in current result'
-  },
-  {
-    label: 'Genius Levels',
-    value: summary.value.genius_level_count.toLocaleString(),
-    note: 'Distinct levels in current result'
-  }
-])
 
 const dailyOsmosisTrendOption = computed<EChartsOption | null>(() => {
   if (!dailyOsmosisTrendData.value.labels.length) return null
@@ -403,155 +321,43 @@ const weeklyOsmosisTrendOption = computed<EChartsOption | null>(() => {
   }
 })
 
-const trendWeightData = computed(() => ({
-  dates: trendWeightDates.value,
-  weights: trendWeightValues.value
-}))
-
-const dialogValueFactorOption = computed(() => {
-  const data = trendMetricData.value?.value_factor_trend || []
-  if (!data.length) return null
-  const labels = data.map(item => item.date_range)
-  const updateDates = data.map(item => item.update_date)
-  const values = data.map(item => item.value_factor)
-  const validValues = pickValidNumbers(values)
-  if (!validValues.length) return null
-  const { min, max } = computeYAxisRange(validValues)
-
-  return {
-    tooltip: {
-      trigger: 'axis',
-      formatter: (params: any) => {
-        const points = Array.isArray(params) ? params : [params]
-        const point = points?.[0]
-        if (!point) return ''
-        const value = point.value === null || point.value === undefined ? '-' : Number(point.value).toFixed(2)
-        const updateDate = updateDates[point.dataIndex] || '-'
-        return `区间: ${point.axisValue}<br/>更新时间: ${updateDate}<br/>Value Factor: ${value}`
-      }
-    },
-    grid: { left: '6%', right: '5%', top: '10%', bottom: '14%', containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: labels,
-      boundaryGap: false,
-      axisLabel: { interval: 0, lineHeight: 14, margin: 8, formatter: (value: string) => formatDateRangeLabel(value) }
-    },
-    yAxis: { type: 'value', name: 'Value Factor', min, max, scale: true, axisLabel: { formatter: (value: number) => value.toFixed(2) } },
-    series: [
-      {
-        name: 'Value Factor',
-        type: 'line',
-        smooth: true,
-        showSymbol: false,
-        data: values,
-        itemStyle: { color: '#d56a3a' },
-        lineStyle: { width: 2 },
-        areaStyle: { color: 'rgba(213, 106, 58, 0.12)' }
-      }
-    ]
-  } as EChartsOption
-})
-
-const dialogCombinedOption = computed(() => {
-  const data = trendMetricData.value?.combined_trend || []
-  if (!data.length) return null
-  const labels = data.map(item => item.date_range)
-  const updateDates = data.map(item => item.update_date)
-  const alpha = data.map(item => item.combined_alpha_performance)
-  const powerPool = data.map(item => item.combined_power_pool_alpha_performance)
-  const selected = data.map(item => item.combined_selected_alpha_performance)
-  const validValues = pickValidNumbers([...alpha, ...powerPool, ...selected])
-  if (!validValues.length) return null
-  const { min, max } = computeYAxisRange(validValues)
-
-  return {
-    tooltip: {
-      trigger: 'axis',
-      formatter: (params: any) => {
-        const points = Array.isArray(params) ? params : [params]
-        const index = points?.[0]?.dataIndex ?? 0
-        const dateRange = labels[index] || '-'
-        const updateDate = updateDates[index] || '-'
-        const lines = points.map((item: any) => {
-          const value = item.value === null || item.value === undefined ? '-' : Number(item.value).toFixed(2)
-          return `${item.marker}${item.seriesName}: ${value}`
-        })
-        return [`区间: ${dateRange}`, `更新时间: ${updateDate}`, ...lines].join('<br/>')
-      }
-    },
-    legend: { top: 0 },
-    grid: { left: '6%', right: '5%', top: '16%', bottom: '14%', containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: labels,
-      boundaryGap: false,
-      axisLabel: { interval: 0, lineHeight: 14, margin: 8, formatter: (value: string) => formatDateRangeLabel(value) }
-    },
-    yAxis: { type: 'value', name: 'Combined', min, max, scale: true, axisLabel: { formatter: (value: number) => value.toFixed(2) } },
-    series: [
-      {
-        name: 'Combined Alpha Performance',
-        type: 'line',
-        smooth: true,
-        showSymbol: false,
-        data: alpha,
-        itemStyle: { color: '#d56a3a' },
-        lineStyle: { width: 2 }
-      },
-      {
-        name: 'Combined Selected Alpha Performance',
-        type: 'line',
-        smooth: true,
-        showSymbol: false,
-        data: powerPool,
-        itemStyle: { color: '#2f8f83' },
-        lineStyle: { width: 2 }
-      },
-      {
-        name: 'Combined Power Pool Alpha Performance',
-        type: 'line',
-        smooth: true,
-        showSymbol: false,
-        data: selected,
-        itemStyle: { color: '#7f5af0' },
-        lineStyle: { width: 2 }
-      }
-    ]
-  } as EChartsOption
-})
-
 const toggleTrendCard = () => {
   isTrendCardFlipped.value = !isTrendCardFlipped.value
 }
 
-const fetchFilterOptions = async () => {
-  filtersLoading.value = true
-  try {
-    const [consultantCountryRes, geniusCountryRes, levelsRes] = await Promise.all([
-      leaderboardApi.getAvailableCountries(),
-      leaderboardApi.getGeniusAvailableCountries(),
-      leaderboardApi.getGeniusAvailableLevels()
-    ])
-    countryOptions.value = Array.from(new Set([...(consultantCountryRes.data || []), ...(geniusCountryRes.data || [])])).sort(
-      (a, b) => a.localeCompare(b)
-    )
-    geniusLevelOptions.value = (levelsRes.data || []).slice().sort((a, b) => a.localeCompare(b))
-  } catch (err) {
-    console.error('Failed to fetch consultant filter options:', err)
-  } finally {
-    filtersLoading.value = false
+const summaryCards = computed(() => [
+  {
+    label: 'Users With Data',
+    value: summary.value.total_users.toLocaleString(),
+    note: 'Distinct users with non-null and non-zero osmosis rank'
+  },
+  {
+    label: 'Valid Records',
+    value: summary.value.total_records.toLocaleString(),
+    note: 'Rows after excluding null and 0'
+  },
+  {
+    label: 'Overall Average',
+    value: formatNumber(summary.value.avg_osmosis_rank, 4),
+    note: 'Calculated from non-null and non-zero osmosis rank'
+  },
+  {
+    label: 'Date Coverage',
+    value: summary.value.min_record_date && summary.value.max_record_date
+      ? `${summary.value.min_record_date} ~ ${summary.value.max_record_date}`
+      : '-',
+    note: 'Filtered date span'
   }
-}
+])
 
 const fetchRows = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await leaderboardApi.getConsultantMergedPage({
-      recordDate: selectedRecordDate.value || undefined,
+    const response = await leaderboardApi.getOsmosisPage({
+      startDate: selectedDateRange.value?.[0],
+      endDate: selectedDateRange.value?.[1],
       countries: selectedCountries.value,
-      geniusLevels: selectedGeniusLevels.value,
       userKeyword: userKeyword.value.trim() || undefined,
       sortBy: sortBy.value,
       sortOrder: sortOrder.value,
@@ -562,21 +368,33 @@ const fetchRows = async () => {
     const data = response.data
     rows.value = data.items || []
     total.value = data.total || 0
-    summary.value = data.summary || defaultSummary()
-    availableRecordDates.value = data.available_record_dates || []
-
-    if (!selectedRecordDate.value && data.record_date) {
-      selectedRecordDate.value = data.record_date
+    summary.value = data.summary || {
+      total_users: 0,
+      total_records: 0,
+      avg_osmosis_rank: null,
+      min_record_date: null,
+      max_record_date: null
     }
   } catch (err) {
-    console.error('Failed to fetch consultant merged page:', err)
-    error.value = '鏁版嵁鍔犺浇澶辫触锛岃绋嶅悗閲嶈瘯'
+    console.error('Failed to fetch osmosis page data:', err)
+    error.value = 'Failed to load osmosis data'
     rows.value = []
     total.value = 0
-    summary.value = defaultSummary()
   } finally {
     loading.value = false
     firstLoading.value = false
+  }
+}
+
+const fetchFilterOptions = async () => {
+  filtersLoading.value = true
+  try {
+    const response = await leaderboardApi.getAvailableCountries()
+    countryOptions.value = (response.data || []).slice().sort((a, b) => a.localeCompare(b))
+  } catch (err) {
+    console.error('Failed to fetch osmosis filter options:', err)
+  } finally {
+    filtersLoading.value = false
   }
 }
 
@@ -590,11 +408,11 @@ const applyFilters = async () => {
 }
 
 const resetFilters = async () => {
+  selectedDateRange.value = [defaultStartDate, getTodayDate()]
   selectedCountries.value = []
-  selectedGeniusLevels.value = []
   userKeyword.value = ''
-  sortBy.value = 'user'
-  sortOrder.value = 'asc'
+  sortBy.value = 'avg_osmosis_rank'
+  sortOrder.value = 'desc'
   page.value = 1
   await fetchRows()
 }
@@ -625,21 +443,13 @@ const openUserTrendDialog = async (user: string) => {
   trendDialogUser.value = user
   trendDates.value = []
   trendValues.value = []
-  trendMetricData.value = null
-  trendWeightDates.value = []
-  trendWeightValues.value = []
   selectedTrendDateRange.value = null
   isTrendCardFlipped.value = false
 
   try {
-    const [osmosisRes, metricRes, weightRes] = await Promise.all([
-      leaderboardApi.getConsultantUserDailyOsmosisTimeSeries(user),
-      leaderboardApi.getUserMetricTrends(user),
-      leaderboardApi.getGeniusUserWeightTimeSeries(user, getDateDaysAgo(weightTrendLookbackDays - 1))
-    ])
-
-    const dates = osmosisRes.data.dates || []
-    const values = osmosisRes.data.daily_osmosis_ranks || []
+    const response = await leaderboardApi.getConsultantUserDailyOsmosisTimeSeries(user)
+    const dates = response.data.dates || []
+    const values = response.data.daily_osmosis_ranks || []
     const length = Math.min(dates.length, values.length)
     const records: TrendRecord[] = []
     for (let i = 0; i < length; i += 1) {
@@ -654,12 +464,16 @@ const openUserTrendDialog = async (user: string) => {
     records.sort((a, b) => a.record_date.localeCompare(b.record_date))
     trendDates.value = records.map(item => item.record_date)
     trendValues.value = records.map(item => item.daily_osmosis_rank)
-    trendMetricData.value = metricRes.data
-    trendWeightDates.value = weightRes.data.dates || []
-    trendWeightValues.value = weightRes.data.weights || []
 
-    const latestDate = records[records.length - 1]?.record_date
-    if (latestDate) {
+    const outerRange = selectedDateRange.value && selectedDateRange.value.length === 2
+      ? [selectedDateRange.value[0], selectedDateRange.value[1]]
+      : null
+
+    if (outerRange) {
+      selectedTrendDateRange.value = outerRange
+    } else {
+      const latestDate = records[records.length - 1]?.record_date
+      if (!latestDate) return
       const latest = parseDay(latestDate)
       const fixedStart = parseDay(dailyOsmosisStartDate)
       const rangeStart = latest < fixedStart ? records[0]?.record_date || latestDate : dailyOsmosisStartDate
@@ -677,9 +491,6 @@ const handleTrendDialogClosed = () => {
   trendDialogUser.value = ''
   trendDates.value = []
   trendValues.value = []
-  trendMetricData.value = null
-  trendWeightDates.value = []
-  trendWeightValues.value = []
   trendDialogError.value = ''
   selectedTrendDateRange.value = null
   isTrendCardFlipped.value = false
@@ -692,28 +503,28 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="consultant-page">
+  <div class="osmosis-page">
     <header class="dashboard-header">
       <div>
-        <h1 class="dashboard-title">Consultant Detail Dashboard</h1>
-        <p class="dashboard-subtitle">Merged view of `leaderboard_consultant_user` and `leaderboard_genius_user`</p>
+        <h1 class="dashboard-title">Osmosis Rank Dashboard</h1>
+        <p class="dashboard-subtitle">User-level osmosis rank statistics from `leaderboard_consultant_user`</p>
       </div>
       <el-button type="primary" class="primary-pill" :loading="loading" @click="refreshAll">Refresh</el-button>
     </header>
 
     <el-card class="filters-panel" shadow="never">
       <el-form class="filter-form" label-position="top">
-        <el-form-item label="Record Date">
-          <el-select
-            v-model="selectedRecordDate"
-            filterable
+        <el-form-item label="Date Range">
+          <el-date-picker
+            v-model="selectedDateRange"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            start-placeholder="Start date"
+            end-placeholder="End date"
+            unlink-panels
             clearable
-            :loading="loading"
-            placeholder="Select date"
-            @change="applyFilters"
-          >
-            <el-option v-for="item in availableRecordDates" :key="item" :label="item" :value="item" />
-          </el-select>
+          />
         </el-form-item>
         <el-form-item label="Country/Region">
           <el-select
@@ -729,20 +540,6 @@ onMounted(async () => {
             <el-option v-for="item in countryOptions" :key="item" :label="item" :value="item" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Genius Level">
-          <el-select
-            v-model="selectedGeniusLevels"
-            multiple
-            collapse-tags
-            collapse-tags-tooltip
-            clearable
-            filterable
-            :loading="filtersLoading"
-            placeholder="Select level"
-          >
-            <el-option v-for="item in geniusLevelOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="User Search">
           <el-input v-model="userKeyword" clearable placeholder="Enter WQ_ID keyword" @keyup.enter="applyFilters" />
         </el-form-item>
@@ -755,7 +552,7 @@ onMounted(async () => {
 
     <section class="summary-grid">
       <template v-if="firstLoading">
-        <article v-for="i in 6" :key="`summary-skeleton-${i}`" class="summary-card">
+        <article v-for="i in 4" :key="`summary-skeleton-${i}`" class="summary-card">
           <el-skeleton :rows="2" animated />
         </article>
       </template>
@@ -771,10 +568,8 @@ onMounted(async () => {
     <el-card class="table-card" shadow="never">
       <template #header>
         <div class="section-header">
-          <span class="section-title">All Metrics</span>
-          <div class="table-controls">
-            <span class="section-meta">Total {{ total }}</span>
-          </div>
+          <span class="section-title">Osmosis User Summary</span>
+          <span class="section-meta">Total {{ total }}</span>
         </div>
       </template>
 
@@ -794,89 +589,31 @@ onMounted(async () => {
         <el-table-column label="No." width="70" align="center">
           <template #default="{ $index }">{{ calcRank($index) }}</template>
         </el-table-column>
-        <el-table-column prop="user" label="User" min-width="130" sortable="custom">
+        <el-table-column prop="user" label="User" min-width="140" sortable="custom">
           <template #default="{ row }">
             <span class="user-link" @click="openUserTrendDialog(row.user)">{{ row.user }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="country" label="Country" min-width="110" sortable="custom" />
-        <el-table-column prop="university" label="University" min-width="170" show-overflow-tooltip sortable="custom" />
-        <el-table-column prop="genius_level" label="Level" min-width="100" sortable="custom" />
-        <el-table-column prop="best_level" label="Best Level" min-width="100" sortable="custom" />
-
-        <el-table-column prop="weight_factor" label="Weight" min-width="100" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.weight_factor, 2) }}</template>
+        <el-table-column prop="country" label="Country/Region" min-width="140" sortable="custom">
+          <template #default="{ row }">{{ row.country || '-' }}</template>
         </el-table-column>
-        <el-table-column prop="value_factor" label="Value" min-width="100" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.value_factor, 2) }}</template>
+        <el-table-column prop="avg_osmosis_rank" label="Average Osmosis Rank" min-width="180" align="right" sortable="custom">
+          <template #default="{ row }">{{ formatNumber(row.avg_osmosis_rank, 2) }}</template>
         </el-table-column>
-        <el-table-column prop="daily_osmosis_rank" label="Osmosis Rank" min-width="120" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.daily_osmosis_rank, 2) }}</template>
+        <el-table-column prop="days_with_data" label="Days With Data" min-width="140" align="right" sortable="custom">
+          <template #default="{ row }">{{ formatInteger(row.days_with_data) }}</template>
         </el-table-column>
-        <el-table-column prop="data_fields_used" label="Data Fields" min-width="110" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatInteger(row.data_fields_used) }}</template>
+        <el-table-column prop="above_avg_days" label="Above Avg Days" min-width="140" align="right" sortable="custom">
+          <template #default="{ row }">{{ formatInteger(row.above_avg_days) }}</template>
         </el-table-column>
-        <el-table-column prop="submissions_count" label="RA Subm." min-width="95" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatInteger(row.submissions_count) }}</template>
+        <el-table-column prop="below_avg_days" label="Below Avg Days" min-width="140" align="right" sortable="custom">
+          <template #default="{ row }">{{ formatInteger(row.below_avg_days) }}</template>
         </el-table-column>
-        <el-table-column prop="mean_prod_correlation" label="RA Prod Corr" min-width="115" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.mean_prod_correlation, 4) }}</template>
+        <el-table-column prop="max_osmosis_rank" label="Max Osmosis Rank" min-width="160" align="right" sortable="custom">
+          <template #default="{ row }">{{ formatNumber(row.max_osmosis_rank, 2) }}</template>
         </el-table-column>
-        <el-table-column prop="mean_self_correlation" label="RA Self Corr" min-width="115" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.mean_self_correlation, 4) }}</template>
-        </el-table-column>
-        <el-table-column prop="super_alpha_submissions_count" label="SA Subm." min-width="95" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatInteger(row.super_alpha_submissions_count) }}</template>
-        </el-table-column>
-        <el-table-column prop="super_alpha_mean_prod_correlation" label="SA Prod Corr" min-width="115" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.super_alpha_mean_prod_correlation, 4) }}</template>
-        </el-table-column>
-        <el-table-column prop="super_alpha_mean_self_correlation" label="SA Self Corr" min-width="115" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.super_alpha_mean_self_correlation, 4) }}</template>
-        </el-table-column>
-
-        <el-table-column prop="alpha_count" label="Alpha Cnt" min-width="95" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatInteger(row.alpha_count) }}</template>
-        </el-table-column>
-        <el-table-column prop="pyramid_count" label="Pyramid Cnt" min-width="100" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatInteger(row.pyramid_count) }}</template>
-        </el-table-column>
-        <el-table-column prop="combined_alpha_performance" label="Cmb Alpha Perf" min-width="125" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.combined_alpha_performance, 2) }}</template>
-        </el-table-column>
-        <el-table-column prop="combined_power_pool_alpha_performance" label="Cmb PP Perf" min-width="115" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.combined_power_pool_alpha_performance, 2) }}</template>
-        </el-table-column>
-        <el-table-column prop="combined_selected_alpha_performance" label="Cmb Sel Perf" min-width="115" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.combined_selected_alpha_performance, 2) }}</template>
-        </el-table-column>
-        <el-table-column prop="operator_count" label="Ops Cnt" min-width="90" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatInteger(row.operator_count) }}</template>
-        </el-table-column>
-        <el-table-column prop="operator_avg" label="Ops Avg" min-width="90" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.operator_avg, 2) }}</template>
-        </el-table-column>
-        <el-table-column prop="field_count" label="Field Cnt" min-width="90" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatInteger(row.field_count) }}</template>
-        </el-table-column>
-        <el-table-column prop="field_avg" label="Field Avg" min-width="90" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.field_avg, 2) }}</template>
-        </el-table-column>
-        <el-table-column prop="community_activity" label="Community" min-width="100" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.community_activity, 2) }}</template>
-        </el-table-column>
-        <el-table-column prop="max_simulation_streak" label="Max Streak" min-width="100" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatInteger(row.max_simulation_streak) }}</template>
-        </el-table-column>
-        <el-table-column prop="record_coverage" label="Coverage" min-width="120" align="center" sortable="custom">
-          <template #default="{ row }">
-            <el-tag :type="row.has_consultant_record ? 'success' : 'info'" size="small">
-              C{{ row.has_consultant_record ? 'Y' : 'N' }}
-            </el-tag>
-            <el-tag :type="row.has_genius_record ? 'warning' : 'info'" size="small" class="tag-gap">
-              G{{ row.has_genius_record ? 'Y' : 'N' }}
-            </el-tag>
-          </template>
+        <el-table-column prop="min_osmosis_rank" label="Min Osmosis Rank" min-width="160" align="right" sortable="custom">
+          <template #default="{ row }">{{ formatNumber(row.min_osmosis_rank, 2) }}</template>
         </el-table-column>
       </el-table>
 
@@ -885,7 +622,7 @@ onMounted(async () => {
           :current-page="page"
           :page-size="pageSize"
           :total="total"
-          :page-sizes="[20, 50, 100]"
+          :page-sizes="[20, 50, 100, 200]"
           layout="total, sizes, prev, pager, next"
           background
           @current-change="handlePageChange"
@@ -896,7 +633,7 @@ onMounted(async () => {
 
     <el-dialog
       v-model="trendDialogVisible"
-      :title="`${trendDialogUser} - User Trend Detail`"
+      :title="`${trendDialogUser} - Daily Osmosis Rank Trend`"
       class="trend-dialog"
       width="980px"
       top="6vh"
@@ -908,35 +645,6 @@ onMounted(async () => {
       </div>
       <p v-else-if="trendDialogError" class="table-error">{{ trendDialogError }}</p>
       <div v-else class="trend-dialog-content">
-        <section class="dialog-trend-grid">
-          <article class="dialog-trend-card">
-            <div class="dialog-trend-title">Weight 变化趋势</div>
-            <div class="dialog-trend-body">
-              <WeightTrendChart v-if="trendWeightData.dates.length > 0" :data="trendWeightData" />
-              <el-empty v-else description="No Weight data" />
-            </div>
-          </article>
-
-          <article class="dialog-trend-card">
-            <div class="dialog-trend-title">Value Factor 变化趋势</div>
-            <div class="dialog-trend-body">
-              <v-chart v-if="dialogValueFactorOption" :option="dialogValueFactorOption" :autoresize="true" class="trend-chart dialog-sub-chart" />
-              <el-empty v-else description="No Value Factor data" />
-            </div>
-          </article>
-
-          <article class="dialog-trend-card">
-            <div class="dialog-trend-title">Combined 变化趋势</div>
-            <div class="dialog-trend-body">
-              <v-chart v-if="dialogCombinedOption" :option="dialogCombinedOption" :autoresize="true" class="trend-chart dialog-sub-chart" />
-              <el-empty v-else description="No Combined data" />
-            </div>
-          </article>
-        </section>
-
-        <article class="dialog-trend-card">
-          <div class="dialog-trend-title">Daily Osmosis Rank Trend</div>
-          <div class="dialog-trend-body">
         <div class="dialog-chart-actions">
           <el-date-picker
             v-model="selectedTrendDateRange"
@@ -964,16 +672,14 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-          </div>
-        </article>
       </div>
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
-.consultant-page {
-  max-width: 1500px;
+.osmosis-page {
+  max-width: 1400px;
   margin: 0 auto;
   padding: 2.5rem clamp(1.5rem, 3vw, 3rem) 4rem;
   position: relative;
@@ -1032,7 +738,7 @@ onMounted(async () => {
 
 .filter-form {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1rem;
   align-items: end;
 }
@@ -1118,12 +824,6 @@ onMounted(async () => {
   color: var(--ink-soft);
 }
 
-.table-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 .section-skeleton {
   padding: 1rem;
 }
@@ -1151,49 +851,10 @@ onMounted(async () => {
 
 .table-card :deep(.el-table__header-wrapper th) {
   background: var(--bg-2);
-  text-transform: none;
   letter-spacing: 0.02em;
   font-size: 0.76rem;
   font-weight: 600;
   color: var(--ink-soft);
-}
-
-.table-card :deep(.el-table__header-wrapper th .cell) {
-  white-space: normal;
-  line-height: 1.2;
-}
-
-.table-card :deep(.el-table__header-wrapper th.is-sortable .cell) {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.table-card :deep(.el-table .caret-wrapper) {
-  width: 11px;
-  height: 14px;
-  display: inline-flex;
-  flex-direction: column;
-  justify-content: center;
-  margin-left: 2px;
-}
-
-.table-card :deep(.el-table .sort-caret) {
-  border-width: 4px;
-  opacity: 0.55;
-}
-
-.table-card :deep(.el-table .ascending .sort-caret.ascending),
-.table-card :deep(.el-table .descending .sort-caret.descending) {
-  opacity: 1;
-}
-
-.table-card :deep(.el-table .ascending .sort-caret.ascending) {
-  border-bottom-color: var(--accent);
-}
-
-.table-card :deep(.el-table .descending .sort-caret.descending) {
-  border-top-color: var(--accent);
 }
 
 .user-link {
@@ -1217,33 +878,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-}
-
-.dialog-trend-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.85rem;
-}
-
-.dialog-trend-card {
-  border: 1px solid var(--stroke);
-  border-radius: 12px;
-  background: var(--card);
-  padding: 0.8rem 0.95rem;
-}
-
-.dialog-trend-title {
-  font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 1rem;
-  margin-bottom: 0.55rem;
-}
-
-.dialog-trend-body {
-  min-height: 280px;
-}
-
-.dialog-sub-chart {
-  min-height: 300px;
 }
 
 .dialog-chart-actions {
@@ -1337,10 +971,6 @@ onMounted(async () => {
   min-height: 380px;
 }
 
-.tag-gap {
-  margin-left: 0.35rem;
-}
-
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
@@ -1353,12 +983,6 @@ onMounted(async () => {
     align-items: flex-start;
   }
 
-  .table-controls {
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
-
   .dialog-chart-actions {
     justify-content: flex-start;
   }
@@ -1368,5 +992,3 @@ onMounted(async () => {
   }
 }
 </style>
-
-
