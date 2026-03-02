@@ -247,6 +247,7 @@ export const leaderboardApi = {
     startDate?: string
     endDate?: string
     countries?: string[]
+    deduplicateMonWed?: boolean
     userKeyword?: string
     sortBy?: 'user' | 'country' | 'avg_osmosis_rank' | 'days_with_data' | 'above_avg_days' | 'below_avg_days' | 'max_osmosis_rank' | 'min_osmosis_rank'
     sortOrder?: 'desc' | 'asc'
@@ -268,6 +269,9 @@ export const leaderboardApi = {
     }
     if (options?.countries && options.countries.length > 0) {
       params.countries = options.countries.join(',')
+    }
+    if (options?.deduplicateMonWed) {
+      params.deduplicate_mon_wed = true
     }
     if (options?.userKeyword) {
       params.user_keyword = options.userKeyword

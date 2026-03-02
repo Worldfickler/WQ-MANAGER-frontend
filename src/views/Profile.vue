@@ -35,6 +35,7 @@ const historyLoading = ref(false)
 const dailyOsmosisStartDate = '2026-02-16'
 const selectedOsmosisDateRange = ref<string[] | null>(null)
 const isOsmosisCardFlipped = ref(false)
+const deduplicateOsmosisMonWed = ref(false)
 
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -158,6 +159,8 @@ const getWeekStart = (value: string) => {
 }
 
 const getWeekdayIndex = (value: string) => (parseDay(value).getDay() + 6) % 7
+const isValidOsmosisForCalc = (value: number | null | undefined): value is number =>
+  value !== null && value !== undefined && Number.isFinite(value) && Number(value) !== 0
 
 const osmosisBaseHistory = computed(() => {
   const start = parseDay(dailyOsmosisStartDate)
@@ -178,10 +181,57 @@ const filteredDailyOsmosisHistory = computed(() => {
   return osmosisBaseHistory.value.filter(item => item.record_date && parseDay(item.record_date) >= start && parseDay(item.record_date) <= end)
 })
 
+const osmosisCalculationHistory = computed(() => {
+  const filtered = filteredDailyOsmosisHistory.value.filter(
+    item => item.record_date && isValidOsmosisForCalc(item.daily_osmosis_rank)
+  )
+  if (!deduplicateOsmosisMonWed.value) return filtered
+
+  const monWedSeen = new Set<string>()
+  return filtered.filter(item => {
+    if (!item.record_date) return false
+    const weekDay = getWeekdayIndex(item.record_date)
+    if (weekDay >= 0 && weekDay <= 2) {
+      const weekKey = formatDay(getWeekStart(item.record_date))
+      if (monWedSeen.has(weekKey)) return false
+      monWedSeen.add(weekKey)
+    }
+    return true
+  })
+})
+
 const dailyOsmosisChartData = computed(() => ({
   labels: filteredDailyOsmosisHistory.value.map(item => item.record_date),
   values: filteredDailyOsmosisHistory.value.map(item => item.daily_osmosis_rank)
 }))
+
+const dailyOsmosisAverage = computed<number | null>(() => {
+  const values = osmosisCalculationHistory.value.map(item => Number(item.daily_osmosis_rank))
+  if (!values.length) return null
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+})
+
+const weeklyOsmosisAverageMap = computed(() => {
+  const groups = new Map<string, number[]>()
+  osmosisCalculationHistory.value.forEach(item => {
+    if (!item.record_date) return
+    const weekStart = formatDay(getWeekStart(item.record_date))
+    if (!groups.has(weekStart)) {
+      groups.set(weekStart, [])
+    }
+    groups.get(weekStart)?.push(Number(item.daily_osmosis_rank))
+  })
+
+  const result = new Map<string, number | null>()
+  groups.forEach((values, weekStart) => {
+    if (!values.length) {
+      result.set(weekStart, null)
+      return
+    }
+    result.set(weekStart, values.reduce((sum, value) => sum + value, 0) / values.length)
+  })
+  return result
+})
 
 const weeklyOsmosisChartData = computed(() => {
   const grouped = new Map<string, { weekStart: string; weekEnd: string; values: Array<number | null> }>()
@@ -210,8 +260,7 @@ const weeklyOsmosisChartData = computed(() => {
   return [...grouped.values()]
     .sort((a, b) => a.weekStart.localeCompare(b.weekStart))
     .map(week => {
-      const validRanks = week.values.filter((value): value is number => value !== null && value !== undefined)
-      const averageRank = validRanks.length ? validRanks.reduce((sum, value) => sum + value, 0) / validRanks.length : null
+      const averageRank = weeklyOsmosisAverageMap.value.get(week.weekStart) ?? null
       return {
         ...week,
         averageRank
@@ -465,7 +514,9 @@ const dailyOsmosisOption = computed<EChartsOption | null>(() => {
         markLine: {
           symbol: ['none', 'arrow'],
           symbolSize: 10,
-          data: [{ type: 'average', name: '平均值' }]
+          data: dailyOsmosisAverage.value === null
+            ? []
+            : [{ name: '平均值', yAxis: Number(dailyOsmosisAverage.value.toFixed(2)) }]
         }
       }
     ]
@@ -643,9 +694,18 @@ onMounted(() => {
               format="YYYY-MM-DD"
               start-placeholder="开始日期"
               end-placeholder="结束日期"
-               class="date-range-picker"
-               unlink-panels
-             />
+                class="date-range-picker"
+                unlink-panels
+              />
+            <div class="osmosis-dedup-control">
+              <span class="osmosis-dedup-label">Mon-Wed Dedup</span>
+              <el-switch
+                v-model="deduplicateOsmosisMonWed"
+                inline-prompt
+                active-text="ON"
+                inactive-text="OFF"
+              />
+            </div>
             <el-button class="flip-toggle-btn" text @click="toggleOsmosisCard">
               {{ isOsmosisCardFlipped ? '切换到日维度' : '切换到周维度' }}
             </el-button>
@@ -912,6 +972,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.7rem;
+}
+
+.osmosis-dedup-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.osmosis-dedup-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
 }
 
 .flip-toggle-btn {

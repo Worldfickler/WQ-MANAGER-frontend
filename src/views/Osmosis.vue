@@ -42,6 +42,7 @@ const rows = ref<OsmosisDailyRecordItem[]>([])
 
 const selectedDateRange = ref<string[] | null>([defaultStartDate, getTodayDate()])
 const selectedCountries = ref<string[]>([])
+const deduplicateMonWed = ref(false)
 const countryOptions = ref<string[]>([])
 const userKeyword = ref('')
 const sortBy = ref<SortField>('avg_osmosis_rank')
@@ -75,6 +76,7 @@ const trendDates = ref<string[]>([])
 const trendValues = ref<number[]>([])
 const selectedTrendDateRange = ref<string[] | null>(null)
 const isTrendCardFlipped = ref(false)
+const trendDeduplicateMonWed = ref(false)
 const weekDayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
 const pickValidNumbers = (values: Array<number | null | undefined>) =>
@@ -96,6 +98,8 @@ const getWeekStart = (value: string) => {
 }
 
 const getWeekdayIndex = (value: string) => (parseDay(value).getDay() + 6) % 7
+const isValidOsmosisForCalc = (value: number | null | undefined): value is number =>
+  value !== null && value !== undefined && Number.isFinite(value) && Number(value) !== 0
 
 type TrendRecord = { record_date: string; daily_osmosis_rank: number }
 
@@ -130,6 +134,51 @@ const filteredTrendHistory = computed(() => {
   return trendBaseHistory.value.filter(item => parseDay(item.record_date) >= start && parseDay(item.record_date) <= end)
 })
 
+const trendCalculationHistory = computed<TrendRecord[]>(() => {
+  const filtered = filteredTrendHistory.value.filter(item => isValidOsmosisForCalc(item.daily_osmosis_rank))
+  if (!trendDeduplicateMonWed.value) return filtered
+
+  const monWedSeen = new Set<string>()
+  const deduped: TrendRecord[] = []
+  for (const item of filtered) {
+    const weekDay = getWeekdayIndex(item.record_date)
+    if (weekDay >= 0 && weekDay <= 2) {
+      const weekKey = formatDay(getWeekStart(item.record_date))
+      if (monWedSeen.has(weekKey)) continue
+      monWedSeen.add(weekKey)
+    }
+    deduped.push(item)
+  }
+  return deduped
+})
+
+const dailyOsmosisAverage = computed<number | null>(() => {
+  const values = trendCalculationHistory.value.map(item => item.daily_osmosis_rank)
+  if (!values.length) return null
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+})
+
+const weeklyAverageMap = computed(() => {
+  const groups = new Map<string, number[]>()
+  trendCalculationHistory.value.forEach(item => {
+    const weekStart = formatDay(getWeekStart(item.record_date))
+    if (!groups.has(weekStart)) {
+      groups.set(weekStart, [])
+    }
+    groups.get(weekStart)?.push(item.daily_osmosis_rank)
+  })
+
+  const result = new Map<string, number | null>()
+  groups.forEach((values, weekStart) => {
+    if (!values.length) {
+      result.set(weekStart, null)
+      return
+    }
+    result.set(weekStart, values.reduce((sum, value) => sum + value, 0) / values.length)
+  })
+  return result
+})
+
 const dailyOsmosisTrendData = computed(() => ({
   labels: filteredTrendHistory.value.map(item => item.record_date),
   values: filteredTrendHistory.value.map(item => item.daily_osmosis_rank)
@@ -161,8 +210,7 @@ const weeklyOsmosisTrendData = computed(() => {
   return [...grouped.values()]
     .sort((a, b) => a.weekStart.localeCompare(b.weekStart))
     .map(week => {
-      const validRanks = week.values.filter((value): value is number => value !== null && value !== undefined)
-      const averageRank = validRanks.length ? validRanks.reduce((sum, value) => sum + value, 0) / validRanks.length : null
+      const averageRank = weeklyAverageMap.value.get(week.weekStart) ?? null
       return {
         ...week,
         averageRank
@@ -227,7 +275,9 @@ const dailyOsmosisTrendOption = computed<EChartsOption | null>(() => {
         markLine: {
           symbol: ['none', 'arrow'],
           symbolSize: 10,
-          data: [{ type: 'average', name: '平均值' }]
+          data: dailyOsmosisAverage.value === null
+            ? []
+            : [{ name: '平均值', yAxis: Number(dailyOsmosisAverage.value.toFixed(2)) }]
         }
       }
     ]
@@ -358,6 +408,7 @@ const fetchRows = async () => {
       startDate: selectedDateRange.value?.[0],
       endDate: selectedDateRange.value?.[1],
       countries: selectedCountries.value,
+      deduplicateMonWed: deduplicateMonWed.value,
       userKeyword: userKeyword.value.trim() || undefined,
       sortBy: sortBy.value,
       sortOrder: sortOrder.value,
@@ -410,6 +461,7 @@ const applyFilters = async () => {
 const resetFilters = async () => {
   selectedDateRange.value = [defaultStartDate, getTodayDate()]
   selectedCountries.value = []
+  deduplicateMonWed.value = false
   userKeyword.value = ''
   sortBy.value = 'avg_osmosis_rank'
   sortOrder.value = 'desc'
@@ -445,6 +497,7 @@ const openUserTrendDialog = async (user: string) => {
   trendValues.value = []
   selectedTrendDateRange.value = null
   isTrendCardFlipped.value = false
+  trendDeduplicateMonWed.value = deduplicateMonWed.value
 
   try {
     const response = await leaderboardApi.getConsultantUserDailyOsmosisTimeSeries(user)
@@ -494,6 +547,7 @@ const handleTrendDialogClosed = () => {
   trendDialogError.value = ''
   selectedTrendDateRange.value = null
   isTrendCardFlipped.value = false
+  trendDeduplicateMonWed.value = false
 }
 
 onMounted(async () => {
@@ -514,7 +568,7 @@ onMounted(async () => {
 
     <el-card class="filters-panel" shadow="never">
       <el-form class="filter-form" label-position="top">
-        <el-form-item label="Date Range">
+        <el-form-item class="filter-date" label="Date Range">
           <el-date-picker
             v-model="selectedDateRange"
             type="daterange"
@@ -526,7 +580,7 @@ onMounted(async () => {
             clearable
           />
         </el-form-item>
-        <el-form-item label="Country/Region">
+        <el-form-item class="filter-country" label="Country/Region">
           <el-select
             v-model="selectedCountries"
             multiple
@@ -540,8 +594,16 @@ onMounted(async () => {
             <el-option v-for="item in countryOptions" :key="item" :label="item" :value="item" />
           </el-select>
         </el-form-item>
-        <el-form-item label="User Search">
+        <el-form-item class="filter-user" label="User Search">
           <el-input v-model="userKeyword" clearable placeholder="Enter WQ_ID keyword" @keyup.enter="applyFilters" />
+        </el-form-item>
+        <el-form-item class="filter-dedup" label="Mon-Wed Dedup">
+          <el-switch
+            v-model="deduplicateMonWed"
+            inline-prompt
+            active-text="ON"
+            inactive-text="OFF"
+          />
         </el-form-item>
         <el-form-item class="form-actions">
           <el-button type="primary" class="primary-pill action-pill" @click="applyFilters">Apply</el-button>
@@ -598,7 +660,7 @@ onMounted(async () => {
           <template #default="{ row }">{{ row.country || '-' }}</template>
         </el-table-column>
         <el-table-column prop="avg_osmosis_rank" label="Average Osmosis Rank" min-width="180" align="right" sortable="custom">
-          <template #default="{ row }">{{ formatNumber(row.avg_osmosis_rank, 2) }}</template>
+          <template #default="{ row }">{{ formatNumber(row.avg_osmosis_rank, 4) }}</template>
         </el-table-column>
         <el-table-column prop="days_with_data" label="Days With Data" min-width="140" align="right" sortable="custom">
           <template #default="{ row }">{{ formatInteger(row.days_with_data) }}</template>
@@ -644,22 +706,31 @@ onMounted(async () => {
         <el-skeleton :rows="6" animated />
       </div>
       <p v-else-if="trendDialogError" class="table-error">{{ trendDialogError }}</p>
-      <div v-else class="trend-dialog-content">
-        <div class="dialog-chart-actions">
-          <el-date-picker
-            v-model="selectedTrendDateRange"
-            type="daterange"
+        <div v-else class="trend-dialog-content">
+          <div class="dialog-chart-actions">
+            <el-date-picker
+              v-model="selectedTrendDateRange"
+              type="daterange"
             value-format="YYYY-MM-DD"
             format="YYYY-MM-DD"
             start-placeholder="Start date"
             end-placeholder="End date"
-            class="date-range-picker dialog-date-picker"
-            unlink-panels
-          />
-          <el-button class="flip-toggle-btn" text @click="toggleTrendCard">
-            {{ isTrendCardFlipped ? 'Switch to Daily' : 'Switch to Weekly' }}
-          </el-button>
-        </div>
+              class="date-range-picker dialog-date-picker"
+              unlink-panels
+            />
+            <div class="dialog-dedup-control">
+              <span class="dialog-dedup-label">Mon-Wed Dedup</span>
+              <el-switch
+                v-model="trendDeduplicateMonWed"
+                inline-prompt
+                active-text="ON"
+                inactive-text="OFF"
+              />
+            </div>
+            <el-button class="flip-toggle-btn" text @click="toggleTrendCard">
+              {{ isTrendCardFlipped ? 'Switch to Daily' : 'Switch to Weekly' }}
+            </el-button>
+          </div>
         <div class="osmosis-flip-wrapper dialog-flip-wrapper">
           <div class="osmosis-flip-inner" :class="{ 'is-flipped': isTrendCardFlipped }">
             <div class="osmosis-face osmosis-face-front">
@@ -738,16 +809,37 @@ onMounted(async () => {
 
 .filter-form {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1rem;
+  grid-template-columns: minmax(260px, 1.7fr) minmax(210px, 1.2fr) minmax(180px, 1fr) minmax(130px, 0.7fr) auto;
+  gap: 0.85rem;
   align-items: end;
+}
+
+.filter-form :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.filter-date {
+  min-width: 0;
+}
+
+.filter-country {
+  min-width: 0;
+}
+
+.filter-user {
+  min-width: 0;
+}
+
+.filter-dedup {
+  min-width: 0;
 }
 
 .form-actions {
   display: flex;
   align-items: flex-end;
   gap: 0.65rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  justify-self: end;
 }
 
 .action-pill {
@@ -883,9 +975,24 @@ onMounted(async () => {
 .dialog-chart-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.dialog-dedup-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.1rem;
+}
+
+.dialog-dedup-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
 }
 
 .dialog-date-picker {
@@ -983,12 +1090,32 @@ onMounted(async () => {
     align-items: flex-start;
   }
 
+  .filter-form {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .form-actions {
+    justify-self: stretch;
+    justify-content: flex-start;
+  }
+
   .dialog-chart-actions {
     justify-content: flex-start;
   }
 
   .dialog-date-picker {
     width: 100%;
+  }
+}
+
+@media (max-width: 1320px) {
+  .filter-form {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .form-actions {
+    justify-self: start;
   }
 }
 </style>
