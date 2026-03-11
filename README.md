@@ -92,3 +92,8 @@ Axios 默认配置位于 `src/api/client.ts`：
 
 - Notice
 ![Notice](picture/notice.png)
+
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/image?repos=Worldfickler/WQ-MANAGER-frontend&type=date&legend=top-left)](https://www.star-history.com/?repos=Worldfickler%2FWQ-MANAGER-frontend&type=date&legend=top-left)
