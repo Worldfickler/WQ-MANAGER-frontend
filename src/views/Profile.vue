@@ -279,7 +279,8 @@ const combinedChartData = computed(() => ({
   updateDates: combinedTrend.value.map(item => item.update_date),
   alpha: combinedTrend.value.map(item => item.combined_alpha_performance),
   powerPool: combinedTrend.value.map(item => item.combined_power_pool_alpha_performance),
-  selected: combinedTrend.value.map(item => item.combined_selected_alpha_performance)
+  selected: combinedTrend.value.map(item => item.combined_selected_alpha_performance),
+  osmosis: combinedTrend.value.map(item => item.combined_osmosis_performance)
 }))
 
 const pickValidNumbers = (values: Array<number | null | undefined>) =>
@@ -373,7 +374,8 @@ const combinedOption = computed<EChartsOption | null>(() => {
   const validValues = pickValidNumbers([
     ...combinedChartData.value.alpha,
     ...combinedChartData.value.powerPool,
-    ...combinedChartData.value.selected
+    ...combinedChartData.value.selected,
+    ...combinedChartData.value.osmosis
   ])
   if (!validValues.length) return null
   const { min, max } = computeYAxisRange(validValues)
@@ -451,6 +453,15 @@ const combinedOption = computed<EChartsOption | null>(() => {
         showSymbol: false,
         data: combinedChartData.value.selected,
         itemStyle: { color: '#7f5af0' },
+        lineStyle: { width: 2 }
+      },
+      {
+        name: 'Combined Osmosis',
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        data: combinedChartData.value.osmosis,
+        itemStyle: { color: '#456990' },
         lineStyle: { width: 2 }
       }
     ]

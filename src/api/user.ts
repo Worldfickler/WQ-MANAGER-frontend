@@ -8,6 +8,7 @@ export interface UserHistoryRecord {
   combined_alpha_performance: number | null
   combined_power_pool_alpha_performance: number | null
   combined_selected_alpha_performance: number | null
+  combined_osmosis_performance: number | null
   submissions_count: number | null
   mean_prod_correlation: number | null
   mean_self_correlation: number | null
@@ -30,6 +31,7 @@ export interface CombinedTrendRecord {
   combined_alpha_performance: number | null
   combined_power_pool_alpha_performance: number | null
   combined_selected_alpha_performance: number | null
+  combined_osmosis_performance: number | null
 }
 
 export interface UserHistoryResponse {
