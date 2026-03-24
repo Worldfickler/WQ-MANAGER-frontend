@@ -218,6 +218,9 @@ export interface CombinedUserChangeItem {
   base_selected: number
   target_selected: number
   selected_change: number
+  base_osmosis: number | null
+  target_osmosis: number | null
+  osmosis_change: number | null
 }
 
 export interface CombinedUserChangePageResponse {
@@ -294,6 +297,7 @@ export interface CombinedTrendPoint {
   combined_alpha_performance: number | null
   combined_power_pool_alpha_performance: number | null
   combined_selected_alpha_performance: number | null
+  combined_osmosis_performance: number | null
 }
 
 export interface UserMetricTrendResponse {

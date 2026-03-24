@@ -24,21 +24,23 @@ const usersLoading = ref(false)
 const usersError = ref<string | null>(null)
 const usersPageData = ref<CombinedUserChangePageResponse | null>(null)
 
+const selectedUpdateDate = ref('')
+const availableUpdateDates = ref<string[]>([])
 const selectedCountries = ref<string[]>([])
 const selectedGeniusLevels = ref<string[]>([])
 const excludeAlphaBothZero = ref(true)
 const excludePowerPoolBothZero = ref(true)
 const excludeSelectedBothZero = ref(true)
+const excludeOsmosisBothZero = ref(true)
 const countryOptions = ref<string[]>([])
 const geniusLevelOptions = ref<string[]>([])
 
 const page = ref(1)
 const pageSize = ref(20)
-const sortBy = ref<'alpha_change' | 'power_pool_change' | 'selected_change' | 'base_alpha' | 'target_alpha' | 'base_power_pool' | 'target_power_pool' | 'base_selected' | 'target_selected'>('alpha_change')
+const sortBy = ref<'alpha_change' | 'power_pool_change' | 'selected_change' | 'osmosis_change' | 'base_alpha' | 'target_alpha' | 'base_power_pool' | 'target_power_pool' | 'base_selected' | 'target_selected' | 'base_osmosis' | 'target_osmosis'>('alpha_change')
 const sortOrder = ref<'desc' | 'asc'>('desc')
-const distributionMetric = ref<'combined_alpha_performance' | 'combined_power_pool_alpha_performance' | 'combined_selected_alpha_performance'>('combined_alpha_performance')
+const distributionMetric = ref<'combined_alpha_performance' | 'combined_power_pool_alpha_performance' | 'combined_selected_alpha_performance' | 'combined_osmosis_performance'>('combined_alpha_performance')
 
-const showInitialLoading = computed(() => loading.value && !analysis.value)
 const showInitialUsersLoading = computed(() => usersLoading.value && !usersPageData.value)
 
 const trendDialogVisible = ref(false)
@@ -49,12 +51,17 @@ const trendDialogUser = ref('')
 
 const fetchFilterOptions = async () => {
   try {
-    const [countriesRes, levelsRes] = await Promise.all([
+    const [countriesRes, levelsRes, updateDatesRes] = await Promise.all([
       leaderboardApi.getGeniusAvailableCountries(),
-      leaderboardApi.getGeniusAvailableLevels()
+      leaderboardApi.getGeniusAvailableLevels(),
+      leaderboardApi.getCombinedAvailableUpdateDates()
     ])
     countryOptions.value = countriesRes.data || []
     geniusLevelOptions.value = levelsRes.data || []
+    availableUpdateDates.value = updateDatesRes.data || []
+    if (!selectedUpdateDate.value && availableUpdateDates.value.length > 0) {
+      selectedUpdateDate.value = availableUpdateDates.value[0]
+    }
   } catch (err) {
     console.error('Failed to fetch combined filter options:', err)
   }
@@ -65,11 +72,13 @@ const fetchAnalysis = async () => {
   error.value = null
   try {
     const response = await leaderboardApi.getCombinedAnalysis({
+      updateDate: selectedUpdateDate.value || undefined,
       countries: selectedCountries.value,
       geniusLevels: selectedGeniusLevels.value,
       excludeAlphaBothZero: excludeAlphaBothZero.value,
       excludePowerPoolBothZero: excludePowerPoolBothZero.value,
-      excludeSelectedBothZero: excludeSelectedBothZero.value
+      excludeSelectedBothZero: excludeSelectedBothZero.value,
+      excludeOsmosisBothZero: excludeOsmosisBothZero.value
     })
     analysis.value = response.data
   } catch (err: any) {
@@ -85,6 +94,7 @@ const fetchUserChanges = async () => {
   usersError.value = null
   try {
     const response = await leaderboardApi.getCombinedUserChanges({
+      updateDate: selectedUpdateDate.value || undefined,
       sortBy: sortBy.value,
       sortOrder: sortOrder.value,
       page: page.value,
@@ -93,7 +103,8 @@ const fetchUserChanges = async () => {
       geniusLevels: selectedGeniusLevels.value,
       excludeAlphaBothZero: excludeAlphaBothZero.value,
       excludePowerPoolBothZero: excludePowerPoolBothZero.value,
-      excludeSelectedBothZero: excludeSelectedBothZero.value
+      excludeSelectedBothZero: excludeSelectedBothZero.value,
+      excludeOsmosisBothZero: excludeOsmosisBothZero.value
     })
     usersPageData.value = response.data
   } catch (err: any) {
@@ -114,8 +125,13 @@ const applyFilters = async () => {
 }
 
 const resetFilters = async () => {
+  selectedUpdateDate.value = availableUpdateDates.value[0] || ''
   selectedCountries.value = []
   selectedGeniusLevels.value = []
+  excludeAlphaBothZero.value = true
+  excludePowerPoolBothZero.value = true
+  excludeSelectedBothZero.value = true
+  excludeOsmosisBothZero.value = true
   page.value = 1
   await refreshAll()
 }
@@ -128,7 +144,8 @@ const handlePageChange = async (nextPage: number) => {
 const metricNameMap: Record<string, string> = {
   combined_alpha_performance: 'Combined Alpha Performance',
   combined_power_pool_alpha_performance: 'Combined Selected Alpha Performance',
-  combined_selected_alpha_performance: 'Combined Power Pool Alpha Performance'
+  combined_selected_alpha_performance: 'Combined Power Pool Alpha Performance',
+  combined_osmosis_performance: 'Combined Osmosis Performance'
 }
 
 const getMetricDisplayName = (metric: string, fallback?: string) => metricNameMap[metric] || fallback || metric
@@ -138,12 +155,15 @@ const handleSortChange = async (payload: { prop: string; order: 'ascending' | 'd
     alpha_change: 'alpha_change',
     power_pool_change: 'power_pool_change',
     selected_change: 'selected_change',
+    osmosis_change: 'osmosis_change',
     base_alpha: 'base_alpha',
     target_alpha: 'target_alpha',
     base_power_pool: 'base_power_pool',
     target_power_pool: 'target_power_pool',
     base_selected: 'base_selected',
-    target_selected: 'target_selected'
+    target_selected: 'target_selected',
+    base_osmosis: 'base_osmosis',
+    target_osmosis: 'target_osmosis'
   }
   if (!payload.order || !mapper[payload.prop]) {
     sortBy.value = 'alpha_change'
@@ -168,7 +188,7 @@ const summaryCards = computed(() => {
     {
       label: '新增 / 缺失',
       value: `${summary.new_users} / ${summary.missing_users}`,
-      note: '仅统计固定日期下三项 combined 完整的用户'
+      note: '仅统计固定日期下四项 combined 完整的用户'
     }
   ]
 })
@@ -308,7 +328,8 @@ const dialogCombinedOption = computed(() => {
   const alpha = data.map(item => item.combined_alpha_performance)
   const powerPool = data.map(item => item.combined_power_pool_alpha_performance)
   const selected = data.map(item => item.combined_selected_alpha_performance)
-  const validValues = pickValidNumbers([...alpha, ...powerPool, ...selected])
+  const osmosis = data.map(item => item.combined_osmosis_performance)
+  const validValues = pickValidNumbers([...alpha, ...powerPool, ...selected, ...osmosis])
   if (!validValues.length) return null
   const { min, max } = computeYAxisRange(validValues)
 
@@ -338,12 +359,13 @@ const dialogCombinedOption = computed(() => {
     series: [
       { name: 'Combined Alpha Performance', type: 'line', smooth: true, showSymbol: false, data: alpha, itemStyle: { color: '#d56a3a' }, lineStyle: { width: 2 } },
       { name: 'Combined Selected Alpha Performance', type: 'line', smooth: true, showSymbol: false, data: powerPool, itemStyle: { color: '#2f8f83' }, lineStyle: { width: 2 } },
-      { name: 'Combined Power Pool Alpha Performance', type: 'line', smooth: true, showSymbol: false, data: selected, itemStyle: { color: '#7f5af0' }, lineStyle: { width: 2 } }
+      { name: 'Combined Power Pool Alpha Performance', type: 'line', smooth: true, showSymbol: false, data: selected, itemStyle: { color: '#7f5af0' }, lineStyle: { width: 2 } },
+      { name: 'Combined Osmosis Performance', type: 'line', smooth: true, showSymbol: false, data: osmosis, itemStyle: { color: '#456990' }, lineStyle: { width: 2 } }
     ]
   }
 })
 
-watch([excludeAlphaBothZero, excludePowerPoolBothZero, excludeSelectedBothZero], async () => {
+watch([excludeAlphaBothZero, excludePowerPoolBothZero, excludeSelectedBothZero, excludeOsmosisBothZero], async () => {
   page.value = 1
   await refreshAll()
 })
@@ -359,12 +381,18 @@ onMounted(async () => {
     <header class="dashboard-header">
       <div>
         <h1 class="dashboard-title">Combined 变化分析</h1>
-        <p class="dashboard-subtitle">固定对比 `leaderboard_genius_user` 在 2026-02-10 与 2026-02-11 的数据</p>
+        <p class="dashboard-subtitle">按 `event_update_record` 的 Combined 更新时间进行对比，目标日为 update_date，基准日为前一天</p>
       </div>
       <el-button type="primary" class="primary-pill" @click="refreshAll">刷新数据</el-button>
     </header>
 
     <div class="settings-wrap">
+      <div class="setting-item setting-item-select">
+        <span>Combined 更新时间</span>
+        <el-select v-model="selectedUpdateDate" class="control-select-medium" placeholder="选择更新时间" @change="applyFilters">
+          <el-option v-for="item in availableUpdateDates" :key="item" :label="item" :value="item" />
+        </el-select>
+      </div>
       <div class="setting-item">
         <el-switch v-model="excludeAlphaBothZero" inline-prompt :active-text="'开'" :inactive-text="'关'" />
         <span>排除基准日和目标日 Combined Alpha Performance 都为 0</span>
@@ -377,9 +405,17 @@ onMounted(async () => {
         <el-switch v-model="excludeSelectedBothZero" inline-prompt :active-text="'开'" :inactive-text="'关'" />
         <span>排除基准日和目标日 Combined Power Pool Alpha Performance 都为 0</span>
       </div>
+      <div class="setting-item">
+        <el-switch v-model="excludeOsmosisBothZero" inline-prompt :active-text="'开'" :inactive-text="'关'" />
+        <span>排除基准日和目标日 Combined Osmosis Performance 都为 0</span>
+      </div>
     </div>
 
-    <div v-if="analysis" class="date-band">
+    <div v-if="loading" class="date-band date-band-skeleton">
+      <el-skeleton-item variant="button" class="date-chip-skeleton" />
+      <el-skeleton-item variant="button" class="date-chip-skeleton" />
+    </div>
+    <div v-else-if="analysis" class="date-band">
       <span class="date-chip">基准日：{{ analysis.base_record_date }}</span>
       <span class="date-chip">目标日：{{ analysis.target_record_date }}</span>
     </div>
@@ -391,7 +427,7 @@ onMounted(async () => {
 
     <template v-if="analysis || loading">
       <section class="summary-grid">
-        <template v-if="showInitialLoading">
+        <template v-if="loading">
           <article v-for="i in 2" :key="`summary-skeleton-${i}`" class="summary-card">
             <el-skeleton :rows="2" animated />
           </article>
@@ -406,8 +442,8 @@ onMounted(async () => {
       </section>
 
       <section class="metric-grid">
-        <template v-if="showInitialLoading">
-          <article v-for="i in 3" :key="`metric-skeleton-${i}`" class="metric-card">
+        <template v-if="loading">
+          <article v-for="i in 4" :key="`metric-skeleton-${i}`" class="metric-card">
             <el-skeleton :rows="4" animated />
           </article>
         </template>
@@ -431,12 +467,13 @@ onMounted(async () => {
                 <el-option label="Combined Alpha Performance" value="combined_alpha_performance" />
                 <el-option label="Combined Selected Alpha Performance" value="combined_power_pool_alpha_performance" />
                 <el-option label="Combined Power Pool Alpha Performance" value="combined_selected_alpha_performance" />
+                <el-option label="Combined Osmosis Performance" value="combined_osmosis_performance" />
               </el-select>
             </div>
           </div>
         </template>
         <div class="chart-box">
-          <div v-if="showInitialLoading" class="section-skeleton">
+          <div v-if="loading" class="section-skeleton">
             <el-skeleton :rows="8" animated />
           </div>
           <v-chart v-else-if="distributionOption" :option="distributionOption" :autoresize="true" class="chart" />
@@ -539,6 +576,18 @@ onMounted(async () => {
               <span :class="row.selected_change >= 0 ? 'positive' : 'negative'">{{ formatSignedTable(row.selected_change) }}</span>
             </template>
           </el-table-column>
+          <el-table-column prop="base_osmosis" label="Combined Osmosis Performance 基准日" min-width="270" align="right" sortable="custom">
+            <template #default="{ row }">{{ row.base_osmosis === null || row.base_osmosis === undefined ? '-' : row.base_osmosis.toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column prop="target_osmosis" label="Combined Osmosis Performance 目标日" min-width="270" align="right" sortable="custom">
+            <template #default="{ row }">{{ row.target_osmosis === null || row.target_osmosis === undefined ? '-' : row.target_osmosis.toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column prop="osmosis_change" label="Combined Osmosis Performance 变化值" min-width="270" align="right" sortable="custom">
+            <template #default="{ row }">
+              <span v-if="row.osmosis_change === null || row.osmosis_change === undefined">-</span>
+              <span v-else :class="row.osmosis_change >= 0 ? 'positive' : 'negative'">{{ formatSignedTable(row.osmosis_change) }}</span>
+            </template>
+          </el-table-column>
         </el-table>
 
         <div class="pagination-wrapper" v-if="total > 0">
@@ -597,12 +646,15 @@ onMounted(async () => {
 .dashboard-subtitle { color: var(--ink-soft); margin-top: 0.4rem; }
 .settings-wrap { display: flex; gap: 0.75rem; flex-wrap: nowrap; margin-bottom: 1rem; }
 .setting-item { display: flex; align-items: center; gap: 0.7rem; flex: 1; min-width: 0; padding: 0.65rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--stroke); background: var(--card); font-size: 0.9rem; color: var(--ink-soft); }
+.control-select-medium { width: 200px; }
 .primary-pill { border-radius: 999px; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.75rem; padding: 0.6rem 1.4rem; background: var(--ink); border-color: var(--ink); color: var(--bg); }
 .primary-pill:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 .small-pill { border-radius: 999px; letter-spacing: 0.08em; text-transform: uppercase; height: 40px; padding: 0 1.1rem; }
 .light-pill { border: 1px solid var(--stroke); background: var(--card); color: var(--ink-soft); }
 .date-band { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.date-band-skeleton { align-items: center; }
 .date-chip { border: 1px solid var(--stroke); background: var(--card); border-radius: 999px; padding: 0.42rem 0.9rem; font-size: 0.8rem; color: var(--ink-soft); }
+.date-chip-skeleton { width: 150px; height: 32px; border-radius: 999px; }
 .error-wrap { background: var(--card); border: 1px solid var(--stroke); border-radius: var(--radius-md); box-shadow: var(--shadow-md); padding: 1.2rem; margin-bottom: 1rem; }
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
 .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.2rem; }
@@ -642,6 +694,7 @@ onMounted(async () => {
   .dashboard-header { flex-direction: column; align-items: flex-start; }
   .table-controls-filters { width: 100%; }
   .control-select-wide { width: 100%; }
+  .control-select-medium { width: 100%; }
   .settings-wrap { flex-wrap: wrap; }
   .setting-item { flex-basis: 100%; }
   .trend-grid { grid-template-columns: 1fr; }

@@ -23,6 +23,8 @@ const topLoading = ref(false)
 const topError = ref<string | null>(null)
 const topPageData = ref<ValueFactorUserChangePageResponse | null>(null)
 
+const selectedUpdateDate = ref('')
+const availableUpdateDates = ref<string[]>([])
 const excludeBothHalf = ref(true)
 const selectedCountry = ref<string[]>([])
 const selectedGeniusLevels = ref<string[]>([])
@@ -34,7 +36,6 @@ const sortOrder = ref<'desc' | 'asc'>('desc')
 const countryOptions = ref<string[]>([])
 const geniusLevelOptions = ref<string[]>([])
 
-const showInitialLoading = computed(() => loading.value && !analysis.value)
 const showInitialTableLoading = computed(() => topLoading.value && !topPageData.value)
 
 const trendDialogVisible = ref(false)
@@ -47,7 +48,7 @@ const fetchAnalysis = async () => {
   loading.value = true
   error.value = null
   try {
-    const response = await leaderboardApi.getValueFactorAnalysis(excludeBothHalf.value)
+    const response = await leaderboardApi.getValueFactorAnalysis(selectedUpdateDate.value || undefined, excludeBothHalf.value)
     analysis.value = response.data
   } catch (err: any) {
     console.error('Failed to fetch Value Factor analysis:', err)
@@ -62,6 +63,7 @@ const fetchTopUsers = async () => {
   topError.value = null
   try {
     const response = await leaderboardApi.getValueFactorUserChanges({
+      updateDate: selectedUpdateDate.value || undefined,
       sortBy: sortBy.value,
       sortOrder: sortOrder.value,
       page: topPage.value,
@@ -81,12 +83,17 @@ const fetchTopUsers = async () => {
 
 const fetchFilterOptions = async () => {
   try {
-    const [countriesRes, levelsRes] = await Promise.all([
+    const [countriesRes, levelsRes, updateDatesRes] = await Promise.all([
       leaderboardApi.getGeniusAvailableCountries(),
-      leaderboardApi.getGeniusAvailableLevels()
+      leaderboardApi.getGeniusAvailableLevels(),
+      leaderboardApi.getValueFactorAvailableUpdateDates()
     ])
     countryOptions.value = countriesRes.data || []
     geniusLevelOptions.value = levelsRes.data || []
+    availableUpdateDates.value = updateDatesRes.data || []
+    if (!selectedUpdateDate.value || !availableUpdateDates.value.includes(selectedUpdateDate.value)) {
+      selectedUpdateDate.value = availableUpdateDates.value[0] || ''
+    }
   } catch (err) {
     console.error('Failed to fetch filter options:', err)
   }
@@ -99,6 +106,11 @@ const refreshAll = async () => {
 const applyFilters = async () => {
   topPage.value = 1
   await fetchTopUsers()
+}
+
+const handleUpdateDateChange = async () => {
+  topPage.value = 1
+  await refreshAll()
 }
 
 const resetTopFilters = async () => {
@@ -362,18 +374,30 @@ onMounted(async () => {
       <div>
         <h1 class="dashboard-title">Value Factor 变化分析</h1>
         <p class="dashboard-subtitle">
-          固定对比 `leaderboard_consultant_user` 在 2026-02-10 与 2026-02-11 的数据
+          按 `event_update_record` 的 Value Factor 更新时间进行对比，目标日为 update_date，基准日为前一天
         </p>
       </div>
       <el-button type="primary" class="primary-pill" @click="refreshAll">刷新数据</el-button>
     </header>
 
-    <div class="settings-row">
-      <el-switch v-model="excludeBothHalf" inline-prompt :active-text="'开'" :inactive-text="'关'" />
-      <span class="settings-label">排除基准日和目标日 value_factor 都为 0.5 的数据</span>
+    <div class="settings-wrap">
+      <div class="setting-item setting-item-select">
+        <span>Value Factor 更新时间</span>
+        <el-select v-model="selectedUpdateDate" class="control-select-medium" placeholder="选择更新时间" @change="handleUpdateDateChange">
+          <el-option v-for="item in availableUpdateDates" :key="item" :label="item" :value="item" />
+        </el-select>
+      </div>
+      <div class="setting-item">
+        <el-switch v-model="excludeBothHalf" inline-prompt :active-text="'开'" :inactive-text="'关'" />
+        <span>排除基准日和目标日 value_factor 都为 0.5 的数据</span>
+      </div>
     </div>
 
-    <div v-if="analysis" class="date-band">
+    <div v-if="loading" class="date-band date-band-skeleton">
+      <el-skeleton-item variant="button" class="date-chip-skeleton" />
+      <el-skeleton-item variant="button" class="date-chip-skeleton" />
+    </div>
+    <div v-else-if="analysis" class="date-band">
       <span class="date-chip">基准日：{{ analysis.base_record_date }}</span>
       <span class="date-chip">目标日：{{ analysis.target_record_date }}</span>
     </div>
@@ -385,7 +409,7 @@ onMounted(async () => {
 
     <template v-if="analysis || loading">
       <section class="summary-grid">
-        <template v-if="showInitialLoading">
+        <template v-if="loading">
           <article v-for="i in 3" :key="`summary-skeleton-${i}`" class="summary-card">
             <el-skeleton :rows="2" animated />
           </article>
@@ -406,7 +430,7 @@ onMounted(async () => {
           </div>
         </template>
         <div class="chart-box">
-          <div v-if="showInitialLoading" class="section-skeleton">
+          <div v-if="loading" class="section-skeleton">
             <el-skeleton :rows="8" animated />
           </div>
           <v-chart v-else-if="distributionOption" :option="distributionOption" :autoresize="true" class="chart" />
@@ -551,8 +575,12 @@ onMounted(async () => {
 .primary-pill:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 .small-pill { border-radius: 999px; letter-spacing: 0.08em; text-transform: uppercase; height: 40px; padding: 0 1.1rem; }
 .light-pill { border: 1px solid var(--stroke); background: var(--card); color: var(--ink-soft); }
-.settings-row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1rem; padding: 0.7rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--stroke); background: var(--card); }
-.settings-label { color: var(--ink-soft); font-size: 0.9rem; }
+.settings-wrap { display: flex; flex-wrap: wrap; gap: 0.85rem; margin-bottom: 1rem; }
+.setting-item { display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--stroke); background: var(--card); color: var(--ink-soft); font-size: 0.9rem; }
+.setting-item-select { min-width: 320px; justify-content: space-between; }
+.control-select-medium { width: 180px; }
+.date-band-skeleton { align-items: center; }
+.date-chip-skeleton { width: 170px; height: 34px; border-radius: 999px; }
 .date-band { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
 .date-chip { border: 1px solid var(--stroke); background: var(--card); border-radius: 999px; padding: 0.42rem 0.9rem; font-size: 0.8rem; color: var(--ink-soft); }
 .error-wrap { background: var(--card); border: 1px solid var(--stroke); border-radius: var(--radius-md); box-shadow: var(--shadow-md); padding: 1.2rem; margin-bottom: 1rem; }
@@ -587,6 +615,8 @@ onMounted(async () => {
 .trend-chart { width: 100%; min-height: 320px; }
 @media (max-width: 900px) {
   .dashboard-header { flex-direction: column; align-items: flex-start; }
+  .setting-item, .setting-item-select { width: 100%; }
+  .control-select-medium { width: 100%; }
   .table-controls-filters { width: 100%; }
   .control-select-wide { width: 100%; }
   .trend-grid { grid-template-columns: 1fr; }

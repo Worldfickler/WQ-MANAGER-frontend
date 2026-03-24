@@ -136,19 +136,32 @@ export const leaderboardApi = {
     return apiClient.get<string[]>('/leaderboard/genius-available-levels')
   },
 
+  getCombinedAvailableUpdateDates: () => {
+    return apiClient.get<string[]>('/leaderboard/combined-available-update-dates')
+  },
+
+  getValueFactorAvailableUpdateDates: () => {
+    return apiClient.get<string[]>('/leaderboard/value-factor-available-update-dates')
+  },
+
   getGeniusLevelWeightChanges: (days: number = 7) => {
     return apiClient.get<GeniusLevelWeightChange[]>('/leaderboard/genius-level-weight-changes', {
       params: { days }
     })
   },
 
-  getValueFactorAnalysis: (excludeBothHalf: boolean = false) => {
+  getValueFactorAnalysis: (updateDate?: string, excludeBothHalf: boolean = false) => {
+    const params: any = { exclude_both_half: excludeBothHalf }
+    if (updateDate) {
+      params.update_date = updateDate
+    }
     return apiClient.get<ValueFactorAnalysisResponse>('/leaderboard/value-factor-analysis', {
-      params: { exclude_both_half: excludeBothHalf }
+      params
     })
   },
 
   getValueFactorUserChanges: (options?: {
+    updateDate?: string
     sortBy?: 'change' | 'base_value_factor' | 'target_value_factor'
     sortOrder?: 'desc' | 'asc'
     page?: number
@@ -165,6 +178,9 @@ export const leaderboardApi = {
       exclude_both_half: options?.excludeBothHalf ?? false
     }
 
+    if (options?.updateDate) {
+      params.update_date = options.updateDate
+    }
     if (options?.countries && options.countries.length > 0) {
       params.countries = options.countries.join(',')
     }
@@ -176,13 +192,18 @@ export const leaderboardApi = {
   },
 
   getCombinedAnalysis: (options?: {
+    updateDate?: string
     countries?: string[]
     geniusLevels?: string[]
     excludeAlphaBothZero?: boolean
     excludePowerPoolBothZero?: boolean
     excludeSelectedBothZero?: boolean
+    excludeOsmosisBothZero?: boolean
   }) => {
     const params: any = {}
+    if (options?.updateDate) {
+      params.update_date = options.updateDate
+    }
     if (options?.countries && options.countries.length > 0) {
       params.countries = options.countries.join(',')
     }
@@ -192,11 +213,13 @@ export const leaderboardApi = {
     params.exclude_alpha_both_zero = options?.excludeAlphaBothZero ?? false
     params.exclude_power_pool_both_zero = options?.excludePowerPoolBothZero ?? false
     params.exclude_selected_both_zero = options?.excludeSelectedBothZero ?? false
+    params.exclude_osmosis_both_zero = options?.excludeOsmosisBothZero ?? false
     return apiClient.get<CombinedAnalysisResponse>('/leaderboard/combined-analysis', { params })
   },
 
   getCombinedUserChanges: (options?: {
-    sortBy?: 'alpha_change' | 'power_pool_change' | 'selected_change' | 'base_alpha' | 'target_alpha' | 'base_power_pool' | 'target_power_pool' | 'base_selected' | 'target_selected'
+    updateDate?: string
+    sortBy?: 'alpha_change' | 'power_pool_change' | 'selected_change' | 'osmosis_change' | 'base_alpha' | 'target_alpha' | 'base_power_pool' | 'target_power_pool' | 'base_selected' | 'target_selected' | 'base_osmosis' | 'target_osmosis'
     sortOrder?: 'desc' | 'asc'
     page?: number
     pageSize?: number
@@ -205,6 +228,7 @@ export const leaderboardApi = {
     excludeAlphaBothZero?: boolean
     excludePowerPoolBothZero?: boolean
     excludeSelectedBothZero?: boolean
+    excludeOsmosisBothZero?: boolean
   }) => {
     const params: any = {
       sort_by: options?.sortBy ?? 'alpha_change',
@@ -213,9 +237,13 @@ export const leaderboardApi = {
       page_size: options?.pageSize ?? 20,
       exclude_alpha_both_zero: options?.excludeAlphaBothZero ?? false,
       exclude_power_pool_both_zero: options?.excludePowerPoolBothZero ?? false,
-      exclude_selected_both_zero: options?.excludeSelectedBothZero ?? false
+      exclude_selected_both_zero: options?.excludeSelectedBothZero ?? false,
+      exclude_osmosis_both_zero: options?.excludeOsmosisBothZero ?? false
     }
 
+    if (options?.updateDate) {
+      params.update_date = options.updateDate
+    }
     if (options?.countries && options.countries.length > 0) {
       params.countries = options.countries.join(',')
     }
