@@ -5,6 +5,7 @@ import type { UploadProps, UploadRequestOptions, UploadUserFile } from 'element-
 
 import { paymentApi } from '@/api/payment'
 import type {
+  BasePaymentConsultantDefaults,
   BasePaymentDashboardResponse,
   BasePaymentLeaderboardItem,
   BasePaymentRecord
@@ -28,6 +29,7 @@ const canViewLeaderboard = ref(false)
 const today = ref('')
 const selectedRecordDate = ref('')
 const myTodayRecord = ref<BasePaymentRecord | null>(null)
+const consultantDefaults = ref<BasePaymentConsultantDefaults | null>(null)
 const leaderboardError = ref('')
 const sortBy = ref<SortBy>('total_payment')
 const sortOrder = ref<SortOrder>('desc')
@@ -54,7 +56,10 @@ const formatNum = (value: number | null | undefined, digits: number = 2) => {
   return Number(value).toFixed(digits)
 }
 
-const updateFormFromRecord = (record: BasePaymentRecord | null) => {
+const updateFormFromRecord = (
+  record: BasePaymentRecord | null,
+  defaults: BasePaymentConsultantDefaults | null = null,
+) => {
   if (!record) {
     form.value.anonymity = 1
     form.value.regular_payment = null
@@ -62,8 +67,8 @@ const updateFormFromRecord = (record: BasePaymentRecord | null) => {
     form.value.regular_count = null
     form.value.super_count = null
     form.value.pictures = []
-    form.value.value_factor = null
-    form.value.daily_osmosis_rank = null
+    form.value.value_factor = defaults?.value_factor ?? null
+    form.value.daily_osmosis_rank = defaults?.daily_osmosis_rank ?? null
     pictureFileList.value = []
     pictureObjectMap.value = {}
     return
@@ -81,8 +86,8 @@ const updateFormFromRecord = (record: BasePaymentRecord | null) => {
     ? record.picture_urls
     : []
   form.value.pictures = [...pictureObjects]
-  form.value.value_factor = record.value_factor
-  form.value.daily_osmosis_rank = record.daily_osmosis_rank
+  form.value.value_factor = record.value_factor ?? defaults?.value_factor ?? null
+  form.value.daily_osmosis_rank = record.daily_osmosis_rank ?? defaults?.daily_osmosis_rank ?? null
   pictureObjectMap.value = {}
   pictureFileList.value = pictureObjects.map((objectName, index) => {
     const uid = -(index + 1)
@@ -105,7 +110,8 @@ const fetchMyStatus = async () => {
   }
   canViewLeaderboard.value = data.has_uploaded_for_date
   myTodayRecord.value = data.data
-  updateFormFromRecord(data.data)
+  consultantDefaults.value = data.consultant_defaults ?? null
+  updateFormFromRecord(data.data, consultantDefaults.value)
 }
 
 const fetchLeaderboard = async () => {
@@ -450,18 +456,16 @@ onMounted(async () => {
 
             <div class="overview-secondary-grid">
               <article class="overview-panel-card">
-                <h3>收益结构占比（按绝对值）</h3>
+                <h3>收益结构占比</h3>
                 <div class="ratio-line">
-                  <span>Regular: {{ formatNum(dashboardOverview.regular_payment_sum, 2) }}</span>
-                  <span>{{ formatNum(dashboardOverview.regular_share_pct, 1) }}%</span>
+                  <span>{{ formatNum(dashboardOverview.regular_share_pct, 2) }}%</span>
                 </div>
-                <el-progress :percentage="dashboardOverview.regular_share_pct" :stroke-width="10" color="#1f6f78" />
+                <el-progress :percentage="Number(dashboardOverview.regular_share_pct.toFixed(2))" :stroke-width="10" color="#1f6f78" />
 
                 <div class="ratio-line ratio-gap">
-                  <span>Super: {{ formatNum(dashboardOverview.super_payment_sum, 2) }}</span>
-                  <span>{{ formatNum(dashboardOverview.super_share_pct, 1) }}%</span>
+                  <span>{{ formatNum(dashboardOverview.super_share_pct, 2) }}%</span>
                 </div>
-                <el-progress :percentage="dashboardOverview.super_share_pct" :stroke-width="10" color="#d56a3a" />
+                <el-progress :percentage="Number(dashboardOverview.super_share_pct.toFixed(2))" :stroke-width="10" color="#d56a3a" />
               </article>
 
               <article class="overview-panel-card">
@@ -615,6 +619,7 @@ onMounted(async () => {
             </el-tag>
           </div>
           <span class="dialog-subtitle">为保障信息准确有效，请您如实填写，此举既惠及他人，也便利自身。</span>
+          <span class="dialog-subtitle">温馨提示：不要乱填哦，乱填会被禁止访问网站喔！</span>
         </div>
       </template>
 

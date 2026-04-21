@@ -59,6 +59,25 @@ export interface UserStatistics {
   latest_date: string | null
 }
 
+export interface PageAuthStatusResponse {
+  page_key: string
+  is_set: boolean
+}
+
+export interface PageAuthSetResponse {
+  success: boolean
+  message: string
+  page_key: string
+}
+
+export interface PageAuthVerifyResponse {
+  page_key: string
+  verified: boolean
+  message: string
+  access_grant_token?: string | null
+  expires_at?: string | null
+}
+
 export const userApi = {
   getHistory: (limitDays: number = 30) => {
     return apiClient.get<UserHistoryResponse>('/user/profile/history', {
@@ -68,5 +87,21 @@ export const userApi = {
 
   getStatistics: () => {
     return apiClient.get<UserStatistics>('/user/profile/statistics')
+  },
+
+  getPageAuthStatus: (pageKey: string) => {
+    return apiClient.get<PageAuthStatusResponse>(`/user/page-auth/${encodeURIComponent(pageKey)}`)
+  },
+
+  setPageAuthCode: (pageKey: string, authCode: string) => {
+    return apiClient.post<PageAuthSetResponse>(`/user/page-auth/${encodeURIComponent(pageKey)}/set`, {
+      auth_code: authCode
+    })
+  },
+
+  verifyPageAuthCode: (pageKey: string, authCode: string) => {
+    return apiClient.post<PageAuthVerifyResponse>(`/user/page-auth/${encodeURIComponent(pageKey)}/verify`, {
+      auth_code: authCode
+    })
   }
 }

@@ -53,6 +53,13 @@ export interface BasePaymentMyStatusResponse {
   has_uploaded_for_date: boolean
   record_date: string
   data: BasePaymentRecord | null
+  consultant_defaults?: BasePaymentConsultantDefaults | null
+}
+
+export interface BasePaymentConsultantDefaults {
+  record_date: string
+  value_factor: number | null
+  daily_osmosis_rank: number | null
 }
 
 export interface BasePaymentLeaderboardItem extends BasePaymentRecord {
