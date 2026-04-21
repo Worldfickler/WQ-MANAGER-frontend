@@ -355,7 +355,7 @@ onMounted(async () => {
   <div class="base-payment-page">
     <header class="dashboard-header">
       <div>
-        <h1 class="dashboard-title">Base Payment Dashboard</h1>
+        <h1 class="dashboard-title">Base Payment Dashboard（测试ing）</h1>
         <p class="dashboard-subtitle">快来看看大佬们今天都赚了多少刀乐吧！</p>
       </div>
       <div class="header-actions">
