@@ -182,12 +182,32 @@ const submitUpload = async () => {
     return
   }
 
-  if (
-    form.value.regular_payment === null || Number.isNaN(Number(form.value.regular_payment)) ||
-    form.value.super_payment === null || Number.isNaN(Number(form.value.super_payment))
-  ) {
-    ElMessage.warning('请填写 regular / super 收益')
-    return
+  const requiredFields = [
+    { key: 'regular_payment', label: 'Regular Payment', min: 0, max: 60, integer: false },
+    { key: 'super_payment', label: 'Super Payment', min: 0, max: 60, integer: false },
+    { key: 'regular_count', label: 'Regular Count', min: 0, max: 4, integer: true },
+    { key: 'super_count', label: 'Super Count', min: 0, max: 1, integer: true },
+    { key: 'value_factor', label: 'Value Factor', min: 0, max: 1, integer: false },
+    { key: 'daily_osmosis_rank', label: 'Daily Osmosis Rank', min: 0, max: 1, integer: false }
+  ] as const
+
+  for (const field of requiredFields) {
+    const rawValue = form.value[field.key]
+    if (rawValue === null || rawValue === undefined || Number.isNaN(Number(rawValue))) {
+      ElMessage.warning(`请填写 ${field.label}`)
+      return
+    }
+
+    const numericValue = Number(rawValue)
+    if (field.integer && !Number.isInteger(numericValue)) {
+      ElMessage.warning(`${field.label} 必须是整数`)
+      return
+    }
+
+    if (numericValue < field.min || numericValue > field.max) {
+      ElMessage.warning(`${field.label} 需在 ${field.min} - ${field.max} 之间`) 
+      return
+    }
   }
 
   uploadLoading.value = true
@@ -636,25 +656,25 @@ onMounted(async () => {
           <div class="upload-block-title">收益与数量</div>
           <div class="upload-block-grid">
             <el-form-item label="Regular Payment">
-              <el-input-number v-model="form.regular_payment" :precision="2" :step="0.1" :min="-100000000" :max="100000000" />
+              <el-input-number v-model="form.regular_payment" :precision="2" :step="0.1" :min="0" :max="60" />
             </el-form-item>
 
             <el-form-item label="Super Payment">
-              <el-input-number v-model="form.super_payment" :precision="2" :step="0.1" :min="-100000000" :max="100000000" />
+              <el-input-number v-model="form.super_payment" :precision="2" :step="0.1" :min="0" :max="60" />
             </el-form-item>
 
             <el-form-item label="Regular Count">
-              <el-input-number v-model="form.regular_count" :precision="0" :step="1" :min="0" :max="100000000" />
+              <el-input-number v-model="form.regular_count" :precision="0" :step="1" :min="0" :max="4" />
             </el-form-item>
 
             <el-form-item label="Super Count">
-              <el-input-number v-model="form.super_count" :precision="0" :step="1" :min="0" :max="100000000" />
+              <el-input-number v-model="form.super_count" :precision="0" :step="1" :min="0" :max="1" />
             </el-form-item>
           </div>
 
           <div class="upload-block-grid">
             <el-form-item label="Value Factor">
-              <el-input-number v-model="form.value_factor" :precision="2" :step="0.01" :min="-100000000" :max="100000000" />
+              <el-input-number v-model="form.value_factor" :precision="2" :step="0.01" :min="0" :max="1" />
             </el-form-item>
 
             <el-form-item label="Daily Osmosis Rank">
@@ -662,8 +682,8 @@ onMounted(async () => {
                 v-model="form.daily_osmosis_rank"
                 :precision="2"
                 :step="0.01"
-                :min="-100000000"
-                :max="100000000"
+                :min="0"
+                :max="1"
               />
             </el-form-item>
 
