@@ -32,6 +32,7 @@ const historyData = ref<UserHistoryRecord[]>([])
 const valueFactorTrend = ref<ValueFactorTrendRecord[]>([])
 const combinedTrend = ref<CombinedTrendRecord[]>([])
 const historyLoading = ref(false)
+const selectedWeightDateRange = ref<string[] | null>(null)
 const dailyOsmosisStartDate = '2026-02-16'
 const selectedOsmosisDateRange = ref<string[] | null>(null)
 const isOsmosisCardFlipped = ref(false)
@@ -81,6 +82,13 @@ const fetchHistory = async () => {
     historyData.value = response.data.data || []
     valueFactorTrend.value = response.data.value_factor_trend || []
     combinedTrend.value = response.data.combined_trend || []
+    const weightDates = historyData.value
+      .map(item => item.record_date)
+      .filter((date): date is string => Boolean(date))
+      .sort((a, b) => a.localeCompare(b))
+    selectedWeightDateRange.value = weightDates.length
+      ? [weightDates[0], weightDates[weightDates.length - 1]]
+      : null
     const latestOsmosisDate = [...historyData.value]
       .reverse()
       .find(item => item.record_date && item.daily_osmosis_rank !== null && item.daily_osmosis_rank !== undefined)?.record_date
@@ -134,11 +142,21 @@ const statCards = computed(() => {
   ]
 })
 
+const filteredWeightHistory = computed(() => {
+  if (!selectedWeightDateRange.value || selectedWeightDateRange.value.length !== 2) {
+    return historyData.value
+  }
+  const [startDate, endDate] = selectedWeightDateRange.value
+  return historyData.value.filter(
+    item => item.record_date && item.record_date >= startDate && item.record_date <= endDate
+  )
+})
+
 const weightChartData = computed(() => {
-  if (!historyData.value.length) return { dates: [], weights: [] }
+  if (!filteredWeightHistory.value.length) return { dates: [], weights: [] }
   return {
-    dates: historyData.value.map(item => item.record_date),
-    weights: historyData.value.map(item => item.weight_factor || 0)
+    dates: filteredWeightHistory.value.map(item => item.record_date),
+    weights: filteredWeightHistory.value.map(item => item.weight_factor || 0)
   }
 })
 
@@ -204,6 +222,12 @@ const dailyOsmosisChartData = computed(() => ({
   labels: filteredDailyOsmosisHistory.value.map(item => item.record_date),
   values: filteredDailyOsmosisHistory.value.map(item => item.daily_osmosis_rank)
 }))
+
+const formatCompactDateLabel = (value: string) => {
+  const [year, month, day] = value.split('-')
+  if (!year || !month || !day) return value
+  return `${month}-${day}`
+}
 
 const dailyOsmosisAverage = computed<number | null>(() => {
   const values = osmosisCalculationHistory.value.map(item => Number(item.daily_osmosis_rank))
@@ -497,9 +521,12 @@ const dailyOsmosisOption = computed<EChartsOption | null>(() => {
       data: dailyOsmosisChartData.value.labels,
       boundaryGap: false,
       axisLabel: {
-        interval: 0,
-        hideOverlap: false,
-        rotate: 25,
+        interval: 'auto',
+        hideOverlap: true,
+        showMinLabel: true,
+        showMaxLabel: true,
+        formatter: formatCompactDateLabel,
+        rotate: 0,
         margin: 10,
         color: '#6f665d'
       }
@@ -680,7 +707,21 @@ onMounted(() => {
       <template #header>
         <div class="section-header">
           <span class="section-title">Weight 变化趋势</span>
-          <span v-if="statistics?.record_days" class="section-meta">共 {{ statistics.record_days }} 天</span>
+          <div class="section-actions">
+            <span v-if="statistics?.record_days" class="section-meta">
+              显示 {{ weightChartData.dates.length }} / 共 {{ statistics.record_days }} 天
+            </span>
+            <el-date-picker
+              v-model="selectedWeightDateRange"
+              type="daterange"
+              value-format="YYYY-MM-DD"
+              format="YYYY-MM-DD"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              class="date-range-picker"
+              unlink-panels
+            />
+          </div>
         </div>
       </template>
 
