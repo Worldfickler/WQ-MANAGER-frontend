@@ -61,6 +61,9 @@ const handleMenuClick = (action: string) => {
     case 'base-payment':
       router.push('/base-payment')
       break
+    case 'sponsor':
+      router.push('/sponsor')
+      break
     case 'home':
       router.push('/')
       break
@@ -83,8 +86,9 @@ const menuItems = [
   { id: 7, icon: '🗂️', label: 'Consultant', action: 'consultant' },
   { id: 8, icon: '🫧', label: 'Osmosis', action: 'osmosis' },
   { id: 9, icon: '💰', label: 'BasePay', action: 'base-payment' },
-  { id: 10, icon: '🏠', label: 'Home', action: 'home' },
-  { id: 11, icon: '📝', label: 'Feedback', action: 'feedback' }
+  { id: 10, icon: '☕', label: 'Sponsor', action: 'sponsor' },
+  { id: 11, icon: '🏠', label: 'Home', action: 'home' },
+  { id: 12, icon: '📝', label: 'Feedback', action: 'feedback' }
 ]
 
 const submitFeedback = async () => {
@@ -325,6 +329,10 @@ const handleDialogClosed = () => {
   flex-direction: column;
   gap: 0.7rem;
   align-items: flex-end;
+  max-height: calc(100vh - 7rem);
+  overflow-y: auto;
+  padding: 0.3rem 0.4rem 0.3rem 0;
+  scrollbar-width: thin;
 }
 
 .menu-item {
@@ -335,7 +343,7 @@ const handleDialogClosed = () => {
   background: var(--card);
   border: 1px solid var(--stroke);
   border-radius: 999px;
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   min-width: 170px;
@@ -377,6 +385,10 @@ const handleDialogClosed = () => {
   animation-delay: 0.55s;
 }
 
+.menu-item:nth-child(12) {
+  animation-delay: 0.6s;
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -390,7 +402,8 @@ const handleDialogClosed = () => {
 
 .menu-item:hover {
   transform: translateX(-6px);
-  box-shadow: 0 16px 30px rgba(18, 14, 10, 0.2);
+  border-color: rgba(213, 106, 58, 0.38);
+  box-shadow: 0 8px 18px rgba(213, 106, 58, 0.12);
 }
 
 .menu-icon {

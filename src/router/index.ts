@@ -14,6 +14,7 @@ import Combined from '@/views/Combined.vue'
 import Consultant from '@/views/Consultant.vue'
 import Osmosis from '@/views/Osmosis.vue'
 import BasePayment from '@/views/BasePayment.vue'
+import Sponsor from '@/views/Sponsor.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -88,6 +89,12 @@ const router = createRouter({
       path: '/base-payment',
       name: 'BasePayment',
       component: BasePayment,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/sponsor',
+      name: 'Sponsor',
+      component: Sponsor,
       meta: { requiresAuth: true }
     }
   ]
