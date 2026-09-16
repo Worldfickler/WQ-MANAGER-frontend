@@ -127,6 +127,14 @@ const handleKeyPress = (event: KeyboardEvent) => {
       </div>
     </div>
 
+    <a
+      class="icp-record"
+      href="https://beian.miit.gov.cn/"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      鲁ICP备2026054179号-1
+    </a>
   </div>
 </template>
 
@@ -136,9 +144,24 @@ const handleKeyPress = (event: KeyboardEvent) => {
   display: grid;
   grid-template-columns: minmax(280px, 1.1fr) minmax(320px, 0.9fr);
   gap: 2.5rem;
-  padding: 4rem clamp(1.5rem, 4vw, 4rem);
+  padding: 4rem clamp(1.5rem, 4vw, 4rem) 5.5rem;
   position: relative;
   z-index: 1;
+}
+
+.icp-record {
+  position: absolute;
+  left: clamp(1.5rem, 4vw, 4rem);
+  bottom: 1.5rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.icp-record:hover {
+  color: var(--accent-2);
+  text-decoration: underline;
 }
 
 .brand-panel {
