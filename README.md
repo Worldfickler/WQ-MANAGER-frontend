@@ -29,6 +29,17 @@ npm run build
 
 产物位于 `dist/`。
 
+## 网站访问统计
+
+项目已在 `index.html` 中接入 Umami，统计后台为 https://umami.wqmanager.icu/。
+
+- 仅统计 `wqmanager.icu` 的访问，本地开发和其他域名不计入统计。
+- 页面访问和 Vue Router 页面切换由 Umami 自动记录。
+- 统计服务需使用覆盖 `umami.wqmanager.icu` 的有效 HTTPS 证书，否则浏览器会阻止加载统计脚本。
+- 更换统计服务或网站时，修改 `index.html` 中的 `src`、`data-website-id` 和 `data-domains`，然后重新构建并发布前端。
+
+上线后，在浏览器 Network 面板确认 `script.js` 加载成功、`/api/send` 请求成功，并查看 Umami 实时数据。
+
 ## Docker 构建与启动
 
 在 `frontend/` 目录执行：
