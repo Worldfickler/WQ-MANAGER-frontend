@@ -92,6 +92,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/submit-wait',
+      name: 'SubmitWait',
+      component: () => import('@/views/SubmitWait.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/sponsor',
       name: 'Sponsor',
       component: Sponsor,

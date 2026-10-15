@@ -64,6 +64,9 @@ const handleMenuClick = (action: string) => {
     case 'sponsor':
       router.push('/sponsor')
       break
+    case 'submit-wait':
+      router.push('/submit-wait')
+      break
     case 'home':
       router.push('/')
       break
@@ -88,7 +91,8 @@ const menuItems = [
   { id: 9, icon: '💰', label: 'BasePay', action: 'base-payment' },
   { id: 10, icon: '☕', label: 'Sponsor', action: 'sponsor' },
   { id: 11, icon: '🏠', label: 'Home', action: 'home' },
-  { id: 12, icon: '📝', label: 'Feedback', action: 'feedback' }
+  { id: 12, icon: '📝', label: 'Feedback', action: 'feedback' },
+  { id: 13, icon: '⏳', label: 'Submit请等等', action: 'submit-wait' }
 ]
 
 const submitFeedback = async () => {
@@ -329,9 +333,11 @@ const handleDialogClosed = () => {
   flex-direction: column;
   gap: 0.7rem;
   align-items: flex-end;
+  width: 14rem;
+  max-width: calc(100vw - 4rem);
   max-height: calc(100vh - 7rem);
   overflow-y: auto;
-  padding: 0.3rem 0.4rem 0.3rem 0;
+  padding: 0.3rem 0.4rem;
   scrollbar-width: thin;
 }
 
@@ -346,7 +352,9 @@ const handleDialogClosed = () => {
   box-shadow: none;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  min-width: 170px;
+  width: 100%;
+  min-width: 0;
+  flex-shrink: 0;
   animation: slideIn 0.3s ease backwards;
 }
 
@@ -407,6 +415,7 @@ const handleDialogClosed = () => {
 }
 
 .menu-icon {
+  flex-shrink: 0;
   font-family: 'Bricolage Grotesque', sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
@@ -414,6 +423,7 @@ const handleDialogClosed = () => {
 }
 
 .menu-label {
+  white-space: nowrap;
   font-size: 0.85rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
